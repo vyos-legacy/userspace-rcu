@@ -1,6 +1,6 @@
 Source: liburcu
 Priority: extra
-Maintainer: Jon Bernard <jbernard@debian.org>
+Maintainer: Vyatta Package Maintainers <maintainers@vyatta.com>
 Build-Depends: debhelper (>= 7.0.50~), dpkg-dev (>= 1.13.2), autotools-dev
 Standards-Version: 3.9.2
 Section: libs
