@@ -1,3 +1,196 @@
+liburcu (0.6.5-1+vyatta3) unstable; urgency=low
+
+  [ Mathieu Desnoyers ]
+  * Initial urcu hash commit
+  * urcu-ht: work in progress RCU hash table
+  * Add fixme to urcu-ht
+  * Document call_rcu() usage
+  * urcu-ht: add correct hash, implement delete_all
+  * urcu-ht: works.
+  * urcu-ht: fix
+  * urcu-ht: fix del node race
+  * urcu-ht: fix mistake in previous commit
+  * urcu-ht: fix incorrect condition in steal
+  * Add stolen flag
+  * urcu-ht: fix steal stolen flag, only in first pass.
+  * urcu-ht: rename "stolen" to "flags"
+  * urcu-ht: resize support (wip)
+  * Update urcu-ht
+  * urcu-ht: change table and size atomically
+  * urcu-ht: fix missing node element in copy
+  * hash table comment fix.
+  * Rename urcu-ht to rculfhash
+  * split-ordered hash table
+  * rcu lf hash table runtime fixes
+  * rculfhash: fix resize (use log2 of chain length)
+  * rculfhash: implement real hash function
+  * rculfhash: use threshold and target
+  * Fix reverse hash comparison
+  * Comment list behavior wrt lock-freedom
+  * rculfhash updates
+  * Update resize thresholds
+  * rculfhash: add unique
+  * rculfhash test: add missing free
+  * rculfhash: Remove "value" pointer
+  * rculfhash: flip order of removal
+  * rculfhash: garbage collection scheme
+  * rculfhash test: add nr_leaked count
+  * rculfhash: cleanup
+  * rculfhash: merge node gc into add loop
+  * rculfhash: change order of node fields for locality
+  * rculfhash: remove hash from nodes
+  * rculfhash test: increases random pool size
+  * rculfhash: fix add unique
+  * rculfhash: update add_unique api
+  * rculfhash test: use per-cpu call-rcu threads
+  * rculfhash test: add options
+  * rculfhash: add c++ ifdef
+  * rculfhash: wait for call_rcu quiescence before destroy
+  * rculfhash: shrink size of dummy node
+  * rculfhash: introduce REMOVED_FLAG and FLAG_MASK
+  * rculfhash: Add clear flag
+  * rculfhash: merge dummy flag into next pointer
+  * rculfhash: merge dummy into next ptr
+  * rculfhash: document flags
+  * rculfhash: add missing clear flag in gc
+  * rculfhash: diminish index table memory consumption
+  * rculfhash: tolerate longer chain length
+  * rculfhash: print resize length (useful as non-debug for now)
+  * rculfhash test: make teardown more verbose and faster
+  * rculfhash: document algorithms
+  * rculfhash: document node alignment
+  * rculfhash: document add lock-freedom
+  * rculfhash: add likely/unlikely annotation
+  * RCU hash table API documentation
+  * Use cds_lfht namespace for lock-free hash table
+  * rculfhash: Check that init size is power of 2
+  * rculfhash: Update API documentation
+  * rculfhash: implement cds_lfht_next
+  * rculfhash: power power of two check should allow 0
+  * rculfhash test: print number of add fail (uniquify matches)
+  * rculfhash: benchmark QSBR flavor
+  * rculfhash: Add initial hash population
+  * rculfhash test: Check random pool size
+  * rculfhash: count nodes (per-cpu) as expand criterion
+  * rcuhash: lazy per-cpu counters, fix resize target update
+  * rculfhash: tweak per-cpu counter resize with thresholds
+  * rculfhash: tweak resize thresholds
+  * rculfhash: set size instead of max for per-cpu count scheme
+  * test rculfhash: add/remove/random support (with SIGUSR1)
+  * rculfhash: allow shrink
+  * rculfhash: deal with resize to size 1 corner-case
+  * rculfhash: simplify dummy node removal
+  * rculfhash: fix 0 order lookup (special-case)
+  * rculfhash: set minimum table size, add todo about helping resize
+  * rculfhash: update ascii art
+  * rculfhash: Make auto resize selectable with flag
+  * rculfhash test: -A option for auto resize
+  * rculfhash: add asserts and comments
+  * rculfhash: Fix off-by-one in fini_table
+  * rculfhash: fix fini_table for size 1
+  * rculfhash: add assertion in path compression
+  * rculfhash: reinstate i - 1 for shrink
+  * rculfhash: poison memory before free (for testing)
+  * rculfhash: add list iteration tracer in gc
+  * call_rcu: register work threads as rcu readers
+  * rculfhash: hold rcu read-side lock in resize
+  * QSBR: add missing wakeups in synchronize_rcu code
+  * rculfhash: disable poison and remove debugging code
+  * rculfhash test: add missing call_rcu per-cpu worker threads teardown
+  * rculfhash: use single init-time allocation for order table
+  * rculfhash: put thread offline before taking mutex (fix G.P.
+    deadlock)
+  * rculfhash: remove verified TODOs
+  * rculfhash: comment shrink operation
+  * rculfhash: make add/removal help expand
+  * rculfhash: break in-progress resize when target size change (between
+    levels)
+  * rculfhash: break in-progress resize when target size change (between
+    levels)
+  * rculfhash: help scheme: fix end node, insertion, and lookups
+  * rculfhash: with resize stop and helpers, min size can now be 1
+  * rculfhash test: add pool offsets
+  * rculfhash: validate lookups
+  * qsbr vs call_rcu : remove exit assertion
+  * rculfhash test: allow different size for lookup, write, init
+  * rculfhash test: add verbosity
+  * rculfhash test: cast rand_r return value directly
+  * rculfhash: fix add_unique node counting
+  * rculfhash test: exit upon failure
+  * Document QSBR interaction with mutexes
+
+  [ Lai Jiangshan ]
+  * call_rcu implementation: add missing static
+
+  [ Mathieu Desnoyers ]
+  * rculfhash: remove helper scheme
+  * rculfhash: merge table hash and link stages into populate
+  * rculfhash: Remove leftover assertions
+  * rculfhash: add TODO for resize worker threads
+  * rculfhash: simplify lfht_new API with inline wrapper
+  * rculfhash: comment file inclusion order
+  * rculfhash: document flags
+  * rculfhash: parallelize resize
+  * rculfhash: spawn only number of threads required for resize
+  * rculfhash: API rename: remove -> del
+  * rculfhash: support replacement operation
+  * rculfhash: implement lock-free replacement
+  * rculfhash: remove now unneeded gc flag (combine with removed)
+  * rculfhash: node alignment is back to 4 bytes
+  * rculfhash cleanup: count percpu deletes in the positive range
+  * rculfhash: output approximation of number of nodes in counting
+  * rculfhash: fix node approx counting
+  * rculfhash: handle small and negative table size approximation
+  * rculfhash: type the ht count approx as long
+  * rculfhash: min size only needed on shrink, take nr cpus into account
+  * rculfhash: approximation can be negative
+  * rculfhash: set next to NULL when node is NULL
+  * rculfhash tests: make node count RCU aware
+  * rculfhash: factor out add_replace and replace
+  * rculfhash: cleanup includes
+  * rculfhash: document use of caa_container_of()
+  * rculfhash: rename _next into _next_duplicate
+  * Add cds_lfht_first/cds_lfht_next for hash table iteration
+  * rculfhash test: move init node outside of rcu read-side c.s.
+    (unneeded protection)
+  * rculfhash: update header documentation
+  * rculfhash needs local config.h
+  * Fix handling of systems without sysconf nr possible cpu support
+  * rculfhash: fix get first / get next iterator
+  * rculfhash test: Use get first/get next to delete all entries
+  * rculfhash test: fix 32-bit hash
+  * call_rcu: Document call_rcu requirements
+  * rculfhash: Test for initiated destroy before performing resize
+  * Check for in progress destroy before calling call_rcu thread
+  * rculfhash: decrement resize cnt on destroy
+  * rculfhash: break resize loop on destroy
+  * rculfhash: do not sample in_progress_destroy in the middle of a
+    level
+  * rcuhash test: fix 32-bit type warning
+  * rculfhash test: handle write return value
+
+  [ Lai Jiangshan ]
+  * rculfhash: remove unused rcu_head in partition_resize_work
+  * rculfhash: merge thread_id into struct partition_resize_work
+  * rculfhash: use dbg_printf() for grow/shrink printout
+  * rculfhash: simplify get_count_order()
+
+  [ Mathieu Desnoyers ]
+  * Reinsert missing test_urcu_*.c files (missing in rename)
+
+  [ Lai Jiangshan ]
+  * rculfhash: make struct rcu_level size power of 2
+  * rculfhash: merge duplicated code for bucket lookup
+  * rculfhash: avoid unneed garbage collect
+  * rculfhash: Simplify lookup_bucket()
+  * compare hash value before call compare_fct()
+  * Fix dummy node insertion bug
+  * Rename the parameter name of _cds_lfht_replace()
+
+  [ Stephen Hemminger ]
+
+ -- Stephen Hemminger <stephen.hemminger@vyatta.com>  Tue, 25 Oct 2011 10:01:22 +0200
+
 liburcu (0.6.5-1+vyatta2) unstable; urgency=low
 
   * Change maintainer entry in control
