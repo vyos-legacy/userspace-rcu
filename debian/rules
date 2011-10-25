@@ -11,6 +11,7 @@ endif
 	dh $@
 
 override_dh_auto_configure:
+	./bootstrap
 	./configure --prefix=/usr
 
 override_dh_auto_test: ;
