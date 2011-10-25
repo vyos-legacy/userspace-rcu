@@ -1,3 +1,11 @@
+liburcu (0.6.5-1+vyatta2) unstable; urgency=low
+
+  * Change maintainer entry in control
+  * Fix build rules
+  * Update list of derived files
+
+ -- Stephen Hemminger <stephen.hemminger@vyatta.com>  Tue, 25 Oct 2011 09:57:08 +0200
+
 liburcu (0.6.5-1+vyatta1) unstable; urgency=low
 
   [ Mathieu Desnoyers ]
