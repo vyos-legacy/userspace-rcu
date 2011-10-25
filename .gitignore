@@ -63,6 +63,12 @@ tests/test_urcu_wfq
 tests/test_urcu_wfq_dynlink
 tests/test_urcu_wfs
 tests/test_urcu_wfs_dynlink
+tests/rcutorture_urcu_qsbr
+tests/test_urcu_qsbr
+tests/test_urcu_qsbr_dynamic_link
+tests/test_urcu_qsbr_gc
+tests/test_urcu_qsbr_lgc
+tests/test_urcu_qsbr_timing
 tests/*.log
 
 #automake
@@ -92,3 +98,4 @@ liburcu-bp.pc
 liburcu-qsbr.pc
 liburcu-mb.pc
 liburcu-signal.pc
+liburcu-cds.pc
