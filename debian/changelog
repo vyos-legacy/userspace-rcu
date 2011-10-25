@@ -1,3 +1,20 @@
+liburcu (0.6.5-1+vyatta1) unstable; urgency=low
+
+  [ Mathieu Desnoyers ]
+  * Enhance API.txt documentation, add to Makefile as EXTRA_DIST
+  * urcu-pointer: fix rcu_set_pointer unset return value
+
+  [ Lai Jiangshan ]
+  * rename test_qsbr to test_urcu_qsbr
+
+  [ Mathieu Desnoyers ]
+  * Reinsert missing test_urcu_*.c files (missing in rename)
+
+  [ Stephen Hemminger ]
+  * Change package maintainer
+
+ -- Stephen Hemminger <shemminger@s6510.linuxnetplumber.net>  Tue, 25 Oct 2011 09:24:54 +0200
+
 liburcu (0.6.5-1) unstable; urgency=low
 
   * [5287458] New upstream version 0.6.5
