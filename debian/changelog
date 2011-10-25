@@ -1,0 +1,126 @@
+liburcu (0.6.5-1) unstable; urgency=low
+
+  * [5287458] New upstream version 0.6.5
+
+ -- Jon Bernard <jbernard@debian.org>  Wed, 05 Oct 2011 20:19:04 -0400
+
+liburcu (0.6.4-1) unstable; urgency=low
+
+  * [78aa227] New upstream version 0.6.4
+
+ -- Jon Bernard <jbernard@debian.org>  Tue, 26 Jul 2011 09:35:15 -0400
+
+liburcu (0.6.3-1) unstable; urgency=low
+
+  * [d734865] New upstream version 0.6.3
+  * [ebf7a34] Remove unneeded .la files
+
+ -- Jon Bernard <jbernard@debian.org>  Tue, 05 Jul 2011 09:53:23 -0400
+
+liburcu (0.6.2-1) unstable; urgency=low
+
+  * [7844d8b] New upstream version 0.6.2
+  * [3268e44] Bump standards version to 3.9.2, no changes necessary
+  * [22c74d6] Remove article from start of description synopses
+  * [6878138] Bump soname so the package name matches the library name
+
+ -- Jon Bernard <jbernard@debian.org>  Sun, 19 Jun 2011 09:14:32 -0400
+
+liburcu (0.5.4-1) unstable; urgency=low
+
+  * [4262c6c] Update watchfile url
+  * [6c28711] New upstream version 0.5.4
+
+ -- Jon Bernard <jbernard@debian.org>  Tue, 08 Mar 2011 20:27:34 -0500
+
+liburcu (0.5.2-1) unstable; urgency=low
+
+  * [5810af] New upstream version 0.5.2
+  * [9ac3e4] Convert patches to git-buildpackages' patch-queue format
+  * [7c4532] Add support for powerpcspe (Closes: #586145) - thanks to
+    Sebastian Andrzej Siewior
+
+ -- Jon Bernard <jbernard@debian.org>  Sat, 04 Dec 2010 15:01:23 -0500
+
+liburcu (0.4.8-1) unstable; urgency=low
+
+  * [6e6727] Imported Upstream version 0.4.8
+
+ -- Jon Bernard <jbernard@debian.org>  Sat, 25 Sep 2010 19:19:45 -0400
+
+liburcu (0.4.6-2) unstable; urgency=low
+
+  * [8d60a0] Set debian source format to 3.0 (quilt)
+  * [518f07] Add patch to fix sparc host cpu detection
+  * [a39d2a] Bump standards version to 3.9.1, no changes necessary
+
+ -- Jon Bernard <jbernard@debian.org>  Tue, 10 Aug 2010 13:11:59 -0400
+
+liburcu (0.4.6-1) unstable; urgency=low
+
+  * [f0ccbd] Imported Upstream version 0.4.6
+
+ -- Jon Bernard <jbernard@debian.org>  Fri, 18 Jun 2010 14:05:21 -0400
+
+liburcu (0.4.4-1) unstable; urgency=low
+
+  * [8f2038] Add Vcs fields to debian/control
+  * [a1415d] Imported Upstream version 0.4.4
+  * [73c8ab] Prevent dh_auto_test from running, target is broken
+
+ -- Jon Bernard <jbernard@debian.org>  Thu, 20 May 2010 22:21:00 -0400
+
+liburcu (0.4.3-2) unstable; urgency=low
+
+  * Include alpha as a supported architecture
+
+ -- Jon Bernard <jbernard@debian.org>  Sun, 07 Mar 2010 18:54:59 -0500
+
+liburcu (0.4.3-1) unstable; urgency=low
+
+  * Imported Upstream version 0.4.3
+
+ -- Jon Bernard <jbernard@debian.org>  Sun, 07 Mar 2010 10:39:55 -0500
+
+liburcu (0.4.2-1) unstable; urgency=low
+
+  * Imported Upstream version 0.4.2
+  * Remove redundant section definition for liburcu0
+
+ -- Jon Bernard <jbernard@debian.org>  Sat, 06 Mar 2010 11:16:01 -0500
+
+liburcu (0.4.1-1) unstable; urgency=low
+
+  * Imported Upstream version 0.4.1 (Closes: #557027, #568621, #559722)
+  * Set proper CFLAGS for sparc architecture
+  * Restrict architectures to the set currently supported
+  * Override dh_auto_configure to run configure properly
+  * Document changes for 0.4.1-1 release
+
+ -- Jon Bernard <jbernard@debian.org>  Sun, 14 Feb 2010 11:57:59 -0500
+
+liburcu (0.4.0-1) unstable; urgency=low
+
+  * Imported Upstream version 0.4.0
+  * debian/control: bump Standards-Version to 3.8.4
+
+ -- Jon Bernard <jbernard@debian.org>  Wed, 03 Feb 2010 20:22:13 -0500
+
+liburcu (0.3.4-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- Jon Bernard <jbernard@debian.org>  Fri, 22 Jan 2010 12:31:17 -0500
+
+liburcu (0.3.2-1) unstable; urgency=low
+
+  * New upstream release
+  * debian/liburcu-dev.docs: include additional documentation
+
+ -- Jon Bernard <jbernard@debian.org>  Tue, 15 Dec 2009 09:38:31 -0500
+
+liburcu (0.3.0-1) unstable; urgency=low
+
+  * Initial release (Closes: #548931)
+
+ -- Jon Bernard <jbernard@debian.org>  Wed, 11 Nov 2009 13:46:29 -0500
