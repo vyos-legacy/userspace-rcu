@@ -1,3 +1,25 @@
+liburcu (0.6.6-1+vyatta+1) unstable; urgency=low
+
+  [ Mathieu Desnoyers ]
+  * Rename likely/unlikely to caa_likely/caa_unlikely
+  * qsbr vs call_rcu : remove exit assertion
+  * Version 0.6.6
+
+  [ Alexandre Montplaisir ]
+  * Install test scripts in the dist tarball
+
+  [ Mathieu Desnoyers ]
+  * urcu-bp: allow weak linking
+  * Add missing rcu_dereference_sym_bp
+  * Fix build for amd64 environment (for FreeBSD 8.2)
+  * Apply autoupdate to configure.ac
+  * Support older autotools
+
+  [ Stephen Hemminger ]
+  * Adapt to new caa_likely() macro
+
+ -- Stephen Hemminger <shemminger@vyatta.com>  Wed, 30 Nov 2011 12:33:31 -0800
+
 liburcu (0.6.5-1+vyatta3) unstable; urgency=low
 
   [ Mathieu Desnoyers ]
