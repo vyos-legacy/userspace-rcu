@@ -1,3 +1,35 @@
+liburcu (0.6.7-1+vyatta+1) unstable; urgency=low
+
+  [ Mathieu Desnoyers ]
+  * Remove m4_ifdef for AC_PROG_LIBTOOL (deprecated)
+  * Describe autotools/libtool/automake version dependency
+  * call_rcu: Add missing call_rcu_before_fork and call_rcu_after_fork_parent declarations
+  * hlist.h: Add missing stddef.h include for NULL
+  * urcu-bp: no need for weak attribute
+  * Add missing compat file for wfq test
+  * Add compat file for test urcu wfs
+  * Version 0.6.7
+
+  [ Gerlando Falauto ]
+  * readme: state correct GCC dependency for ARM
+
+  [ Alexandre Montplaisir ]
+  * Update gitignore
+  * Refresh autoconf files
+
+  [ Mathieu Desnoyers ]
+  * configure.ac: Use AC_LANG_SOURCE for if else macros
+
+  [ David Goulet ]
+  * Fix autoconf futex check
+
+  [ Mathieu Desnoyers ]
+  * Fix AC_LANG_SOURCE usage: only takes one parameter
+
+  [ Stephen Hemminger ]
+
+ -- Stephen Hemminger <shemminger@vyatta.com>  Tue, 24 Jan 2012 17:47:57 -0800
+
 liburcu (0.6.6-1+vyatta+1) unstable; urgency=low
 
   [ Mathieu Desnoyers ]
