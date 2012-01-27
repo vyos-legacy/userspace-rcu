@@ -1,3 +1,10 @@
+liburcu (0.6.7-2+vyatta+1) unstable; urgency=low
+
+  * align with debian
+  * Debian patch
+
+ -- Stephen Hemminger <shemminger@vyatta.com>  Thu, 26 Jan 2012 16:15:44 -0800
+
 liburcu (0.6.7-1+vyatta+1) unstable; urgency=low
 
   [ Mathieu Desnoyers ]
