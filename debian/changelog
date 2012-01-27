@@ -1,3 +1,9 @@
+liburcu (0.6.7-2+vyatta+2) unstable; urgency=low
+
+  * Revert "align with debian"
+
+ -- Stephen Hemminger <shemminger@vyatta.com>  Thu, 26 Jan 2012 16:22:42 -0800
+
 liburcu (0.6.7-2+vyatta+1) unstable; urgency=low
 
   * align with debian
