@@ -1,3 +1,143 @@
+liburcu (0.6.7-2+vyatta+4) unstable; urgency=low
+
+  [ Mathieu Desnoyers ]
+  * Move replace code out from _cds_lfht_add()
+
+  [ Lai Jiangshan ]
+  * Remove dead code in _cds_lfht_gc_bucket()
+  * Cleanup _cds_lfht_replace()
+  * Cleanup _cds_lfht_del()
+  * Comment cleanup: fix ascii art
+  * Cleanup order semantic
+  * rculfhash: fix uniquely add vs cds_lfht_next observation semantic
+  * rculfhash: create dummy nodes directly when create lfht
+  * rculfhash: Remove unneed branches
+  * Avoid alloc small memory pieces
+  * rculfhash: directly lookup bucket in the first order table
+
+  [ Mathieu Desnoyers ]
+  * rculfhash: Cast to struct rcu_level * instead of void * (cleanup)
+
+  [ Lai Jiangshan ]
+  * rculfhash: rename percpu_count to split_count
+  * rculfhash: use hash for index if !HAVE_SCHED_GETCPU
+  * rculfhash: use DEFAULT_SPLIT_COUNT_MASK for !HAVE_SYSCONF
+  * rculfhash: add CDS_LFHT_ACCOUNTING flag
+  * rculfhash: Fix ht allocation bug
+  * rculfhash: Fix min_alloc_size bug
+  * rculfhash: add min_alloc_size test parameter
+
+  [ Paul E. McKenney ]
+  * Fix CAA_BITS_PER_lONG typo
+
+  [ Mathieu Desnoyers ]
+  * Add structure descriptions, remove redundant clear_flag()
+  * rculfhash: rename likely/unlikely (add caa_ prefix)
+
+  [ Lai Jiangshan ]
+  * rculfhash: Fix ht lazy grow logic.
+  * rculfhash: merge duplicated code of cds_lfht_resize_lazy_*()
+  * rculfhash: Change lazy shrink strategy
+  * rculfhash, test: wrap struct cds_lfht_node
+  * rculfhash: Move "struct rcu_head head" out of "struct cds_lfht_node"
+
+  [ Mathieu Desnoyers ]
+  * rculfhash: extract compare_fct and hash_fct from the hash table
+  * rculfhash: Remove leftover hash_seed field
+
+  [ Lai Jiangshan ]
+  * rculfhash: Move key out of struct lfht_test_node, move key_len to caller
+  * rculfhash: rename dummy to bucket
+
+  [ Mathieu Desnoyers ]
+  * Remove whiteline
+  * Add hash table iterator macros
+  * rculfhash: Add parenthesis around macro arg use in iterator macro
+
+  [ Lai Jiangshan ]
+  * Fix arguments order
+
+  [ Mathieu Desnoyers ]
+  * rculfhash: constify all key arguments passed to API
+
+  [ Lai Jiangshan ]
+  * Update comments of cds_lfht_new()
+  * Add Lai Jiangshan's copyright to rculfhash
+  * introduce bucket_at() and improve readability
+  * proper wrapper for bucket table alloc and free
+  * it is not required that ht->t.size >= ht->min_table_size anymore
+  * remove struct rcu_level
+  * rename min_alloc_size/min_alloc_order
+  * add max_nr_buckets argument
+  * Add rcu_flavor
+  * use rcu_flavor for rculfhash
+  * Merge struct rcu_table into struct cds_lfht
+  * move memory management code out as rculfhash-mm-order.c
+  * add rculfhash-mm-chunk.c memory management
+  * add rculfhash-mm-mmap.c memory management
+
+  [ Mathieu Desnoyers ]
+  * rculfhash: reorder cds_lfht for smaller cache footprint in fast-paths
+  * rculfhash: cleanup ht_count_add/ht_count_del
+  * rculfhash: likely -> caa_likely fix
+  * rculfhash: document fini_table
+  * rculfhash mm plugins: cleanup alloc
+  * Fix cds_lfht field order
+
+  [ Lai Jiangshan ]
+  * disable warning when -DNDEBUG(disable assert())
+  * cleanup unneed declare
+  * cleanup duplicated code
+  * rculfhash,test: add max_hash_buckets_size argument
+  * rculfhash,test: add memory_backend argument
+
+  [ Mathieu Desnoyers ]
+  * rculfhash: default mm type
+  * rculfhash: Simplify default logic
+  * Add cds_lfht_ prefix to fls_ulong, get_count_order_ulong, get_count_order_u32
+  * Cleanup DEFINE_RCU_FLAVOR()
+
+  [ Lai Jiangshan ]
+  * Remove unneeded code
+  * simplify the deletion for bucket node
+  * remove unneeded "return;"
+
+  [ Mathieu Desnoyers ]
+  * rculfhash: Relax atomicity guarantees required by removal operation
+  * _cds_lfht_del is not used for buckets anymore, remove parameter
+  * Add missing REMOVAL_OWNER_FLAG comment to cds_lfht_node comment
+  * Document that flags could be represented on 2 bits
+  * rculfhash: number of logically removed nodes should not appear in API
+  * rculfhash: use node instead of iter argument for deletion
+  * cds_lfht_replace: add checks for old/new node hash/value match
+
+  [ Lai Jiangshan ]
+  * rculfhash: remove unneeded clear_flag()
+  * rculfhash: remove unneeded conversion
+
+  [ Mathieu Desnoyers ]
+  * rculfhash: remove an invocation of bit_reverse_ulong() when adding
+  * rculfhash: add comment about hash seed randomness within test program
+  * Install ChangeLog and README into system's doc
+
+  [ Thomas Petazzoni ]
+  * Define _GNU_SOURCE to access CPU_ZERO() macro in uClibc
+
+  [ Mathieu Desnoyers ]
+  * RCU lock-free hash table: implement cds_lfht_is_node_deleted()
+  * tests: define _GNU_SOURCE instead of __USE_GNU
+  * Hash table test: FreeBSD compatibility fix
+  * Allow tests to run on architectures without per-cpu call_rcu support
+  * Fix: add missing sched.h include in rculfhash.c
+  * Fix: use known license text, fix incorrect FSF address
+  * Remove unused jhash.h file
+  * Fix uatomic sign cast
+  * rculfhash: check malloc NULL pointer
+
+  [ Stephen Hemminger ]
+
+ -- Stephen Hemminger <shemminger@vyatta.com>  Tue, 10 Apr 2012 20:47:16 -0700
+
 liburcu (0.6.7-2+vyatta+3) unstable; urgency=low
 
   * new branch
