@@ -1,3 +1,18 @@
+liburcu (0.6.7-3+vyatta+1) unstable; urgency=low
+
+  [ Mathieu Desnoyers ]
+  * Fix out-of-tree build
+  * Add missing files to .gitignore
+  * rculfhash: update removal comment
+  * rculfhash: document linearizability guarantees
+  * rculfhash: document ordering guarantees
+  * rculfhash tests: modularize tests
+  * rculfhash tests: use array of callbacks to modularize
+
+  [ Stephen Hemminger ]
+
+ -- Stephen Hemminger <shemminger@vyatta.com>  Thu, 26 Apr 2012 16:55:57 -0700
+
 liburcu (0.6.7-2+vyatta+4) unstable; urgency=low
 
   [ Mathieu Desnoyers ]
