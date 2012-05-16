@@ -169,6 +169,8 @@ extern unsigned long init_pool_size,
 	write_pool_size;
 extern int validate_lookup;
 
+extern unsigned long nr_hash_chains;
+
 extern int count_pipe[2];
 
 static inline void loop_sleep(unsigned long l)
@@ -323,7 +325,7 @@ void hashword2(
 
 #if (CAA_BITS_PER_LONG == 32)
 static inline
-unsigned long test_hash(const void *_key, size_t length, unsigned long seed)
+unsigned long test_hash_mix(const void *_key, size_t length, unsigned long seed)
 {
 	unsigned int key = (unsigned int) _key;
 
@@ -332,7 +334,7 @@ unsigned long test_hash(const void *_key, size_t length, unsigned long seed)
 }
 #else
 static inline
-unsigned long test_hash(const void *_key, size_t length, unsigned long seed)
+unsigned long test_hash_mix(const void *_key, size_t length, unsigned long seed)
 {
 	union {
 		uint64_t v64;
@@ -350,6 +352,29 @@ unsigned long test_hash(const void *_key, size_t length, unsigned long seed)
 	return v.v64;
 }
 #endif
+
+/*
+ * Hash function with nr_hash_chains != 0 for testing purpose only!
+ * Creates very long hash chains, deteriorating the hash table into a
+ * few linked lists, depending on the nr_hash_chains value. The purpose
+ * of this test is to check how the hash table behaves with hash chains
+ * containing different values, which is a rare case in a normal hash
+ * table.
+ */
+static inline
+unsigned long test_hash(const void *_key, size_t length,
+			unsigned long seed)
+{
+	if (nr_hash_chains == 0) {
+		return test_hash_mix(_key, length, seed);
+	} else {
+		unsigned long v;
+
+		assert(length == sizeof(unsigned long));
+		v = (unsigned long) _key;
+		return v % nr_hash_chains;
+	}
+}
 
 unsigned long test_compare(const void *key1, size_t key1_len,
                            const void *key2, size_t key2_len);
@@ -381,5 +406,12 @@ void test_hash_rw_sigusr2_handler(int signo);
 void *test_hash_rw_thr_reader(void *_count);
 void *test_hash_rw_thr_writer(void *_count);
 int test_hash_rw_populate_hash(void);
+
+/* unique test */
+void test_hash_unique_sigusr1_handler(int signo);
+void test_hash_unique_sigusr2_handler(int signo);
+void *test_hash_unique_thr_reader(void *_count);
+void *test_hash_unique_thr_writer(void *_count);
+int test_hash_unique_populate_hash(void);
 
 #endif /* _TEST_URCU_HASH_H */

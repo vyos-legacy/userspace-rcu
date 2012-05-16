@@ -25,6 +25,7 @@
 
 enum test_hash {
 	TEST_HASH_RW,
+	TEST_HASH_UNIQUE,
 };
 
 struct test_hash_cb {
@@ -44,6 +45,14 @@ struct test_hash_cb test_hash_cb[] = {
 		test_hash_rw_thr_writer,
 		test_hash_rw_populate_hash,
 	},
+	[TEST_HASH_UNIQUE] = {
+		test_hash_unique_sigusr1_handler,
+		test_hash_unique_sigusr2_handler,
+		test_hash_unique_thr_reader,
+		test_hash_unique_thr_writer,
+		test_hash_unique_populate_hash,
+	},
+
 };
 
 static enum test_hash test_choice = TEST_HASH_RW;
@@ -105,6 +114,7 @@ unsigned long init_pool_size = DEFAULT_RAND_POOL,
 	lookup_pool_size = DEFAULT_RAND_POOL,
 	write_pool_size = DEFAULT_RAND_POOL;
 int validate_lookup;
+unsigned long nr_hash_chains;	/* 0: normal table, other: number of hash chains */
 
 int count_pipe[2];
 
@@ -280,6 +290,8 @@ printf("        [not -u nor -s] Add entries (supports redundant keys).\n");
 	printf("        [-N size] Write pool size.\n");
 	printf("        [-O size] Init pool size.\n");
 	printf("        [-V] Validate lookups of init values (use with filled init pool, same lookup range, with different write range).\n");
+	printf("	[-U] Uniqueness test.\n");
+	printf("	[-C] Number of hash chains.\n");
 	printf("\n\n");
 }
 
@@ -443,7 +455,12 @@ int main(int argc, char **argv)
 		case 'V':
 			validate_lookup = 1;
 			break;
-
+		case 'U':
+			test_choice = TEST_HASH_UNIQUE;
+			break;
+		case 'C':
+			nr_hash_chains = atol(argv[++i]);
+			break;
 		}
 	}
 
@@ -516,6 +533,8 @@ int main(int argc, char **argv)
 		lookup_pool_offset, lookup_pool_size);
 	printf_verbose("Update pool size offset %lu size %lu.\n",
 		write_pool_offset, write_pool_size);
+	printf_verbose("Number of hash chains: %lu.\n",
+		nr_hash_chains);
 	printf_verbose("thread %-6s, thread id : %lx, tid %lu\n",
 			"main", pthread_self(), (unsigned long)gettid());
 
@@ -540,6 +559,10 @@ int main(int argc, char **argv)
 				max_hash_buckets_size,
 				(opt_auto_resize ? CDS_LFHT_AUTO_RESIZE : 0) |
 				CDS_LFHT_ACCOUNTING, NULL);
+	}
+	if (!test_ht) {
+		printf("Error allocating hash table.\n");
+		return -1;
 	}
 
 	/*
