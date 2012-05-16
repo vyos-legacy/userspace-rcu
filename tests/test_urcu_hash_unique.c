@@ -1,5 +1,5 @@
 /*
- * test_urcu_hash_rw.c
+ * test_urcu_hash_unique.c
  *
  * Userspace RCU library - test program
  *
@@ -31,7 +31,7 @@ enum urcu_hash_addremove {
 
 static enum urcu_hash_addremove addremove; /* 1: add, -1 remove, 0: random */
 
-void test_hash_rw_sigusr1_handler(int signo)
+void test_hash_unique_sigusr1_handler(int signo)
 {
 	switch (addremove) {
 	case AR_ADD:
@@ -49,7 +49,7 @@ void test_hash_rw_sigusr1_handler(int signo)
 	}
 }
 
-void test_hash_rw_sigusr2_handler(int signo)
+void test_hash_unique_sigusr2_handler(int signo)
 {
 	char msg[1] = { 0x42 };
 	ssize_t ret;
@@ -59,11 +59,9 @@ void test_hash_rw_sigusr2_handler(int signo)
 	} while (ret == -1L && errno == EINTR);
 }
 
-void *test_hash_rw_thr_reader(void *_count)
+void *test_hash_unique_thr_reader(void *_count)
 {
 	unsigned long long *count = _count;
-	struct lfht_test_node *node;
-	struct cds_lfht_iter iter;
 
 	printf_verbose("thread_begin %s, thread id : %lx, tid %lu\n",
 			"reader", pthread_self(), (unsigned long)gettid());
@@ -78,24 +76,28 @@ void *test_hash_rw_thr_reader(void *_count)
 	cmm_smp_mb();
 
 	for (;;) {
+		struct lfht_test_node *node;
+		struct cds_lfht_iter iter;
+		/*
+		 * iterate on whole table, ensuring that no duplicate is
+		 * found.
+		 */
 		rcu_read_lock();
-		cds_lfht_test_lookup(test_ht,
-			(void *)(((unsigned long) rand_r(&rand_lookup) % lookup_pool_size) + lookup_pool_offset),
-			sizeof(void *), &iter);
-		node = cds_lfht_iter_get_test_node(&iter);
-		if (node == NULL) {
-			if (validate_lookup) {
-				printf("[ERROR] Lookup cannot find initial node.\n");
-				exit(-1);
+		cds_lfht_for_each_entry(test_ht, &iter, node, node) {
+			struct cds_lfht_iter dup_iter;
+
+			dup_iter = iter;
+			cds_lfht_next_duplicate(test_ht, test_match,
+				node->key, &dup_iter);
+			if (dup_iter.node != NULL) {
+				printf("[ERROR] Duplicate key %p found\n", node->key);
 			}
-			lookup_fail++;
-		} else {
-			lookup_ok++;
 		}
+		rcu_read_unlock();
+
 		debug_yield_read();
 		if (caa_unlikely(rduration))
 			loop_sleep(rduration);
-		rcu_read_unlock();
 		nr_reads++;
 		if (caa_unlikely(!test_duration_read()))
 			break;
@@ -114,13 +116,14 @@ void *test_hash_rw_thr_reader(void *_count)
 
 }
 
-void *test_hash_rw_thr_writer(void *_count)
+void *test_hash_unique_thr_writer(void *_count)
 {
 	struct lfht_test_node *node;
 	struct cds_lfht_node *ret_node;
 	struct cds_lfht_iter iter;
 	struct wr_count *count = _count;
 	int ret;
+	int loc_add_unique;
 
 	printf_verbose("thread_begin %s, thread id : %lx, tid %lu\n",
 			"writer", pthread_self(), (unsigned long)gettid());
@@ -135,33 +138,42 @@ void *test_hash_rw_thr_writer(void *_count)
 	cmm_smp_mb();
 
 	for (;;) {
-		if ((addremove == AR_ADD || add_only)
+		/*
+		 * add unique/add replace with new node key from range.
+		 */
+		if (1 || (addremove == AR_ADD || add_only)
 				|| (addremove == AR_RANDOM && rand_r(&rand_lookup) & 1)) {
 			node = malloc(sizeof(struct lfht_test_node));
 			lfht_test_node_init(node,
 				(void *)(((unsigned long) rand_r(&rand_lookup) % write_pool_size) + write_pool_offset),
 				sizeof(void *));
 			rcu_read_lock();
-			if (add_unique) {
+			loc_add_unique = rand_r(&rand_lookup) & 1;
+			if (loc_add_unique) {
 				ret_node = cds_lfht_add_unique(test_ht,
 					test_hash(node->key, node->key_len, TEST_HASH_SEED),
 					test_match, node->key, &node->node);
 			} else {
-				if (add_replace)
-					ret_node = cds_lfht_add_replace(test_ht,
-							test_hash(node->key, node->key_len, TEST_HASH_SEED),
-							test_match, node->key, &node->node);
-				else
-					cds_lfht_add(test_ht,
+				ret_node = cds_lfht_add_replace(test_ht,
+						test_hash(node->key, node->key_len, TEST_HASH_SEED),
+						test_match, node->key, &node->node);
+#if 0 //generate an error on purpose
+				cds_lfht_add(test_ht,
 						test_hash(node->key, node->key_len, TEST_HASH_SEED),
 						&node->node);
+				ret_node = NULL;
+#endif //0
 			}
 			rcu_read_unlock();
-			if (add_unique && ret_node != &node->node) {
-				free(node);
-				nr_addexist++;
+			if (loc_add_unique) {
+				if (ret_node != &node->node) {
+					free(node);
+					nr_addexist++;
+				} else {
+					nr_add++;
+				}
 			} else {
-				if (add_replace && ret_node) {
+				if (ret_node) {
 					call_rcu(&to_test_node(ret_node)->head,
 							free_node_cb);
 					nr_addexist++;
@@ -219,17 +231,17 @@ void *test_hash_rw_thr_writer(void *_count)
 	return ((void*)2);
 }
 
-int test_hash_rw_populate_hash(void)
+int test_hash_unique_populate_hash(void)
 {
 	struct lfht_test_node *node;
 	struct cds_lfht_node *ret_node;
 
+	printf("Starting uniqueness test.\n");
+
 	if (!init_populate)
 		return 0;
 
-	printf("Starting rw test\n");
-
-	if ((add_unique || add_replace) && init_populate * 10 > init_pool_size) {
+	if (init_populate * 10 > init_pool_size) {
 		printf("WARNING: required to populate %lu nodes (-k), but random "
 "pool is quite small (%lu values) and we are in add_unique (-u) or add_replace (-s) mode. Try with a "
 "larger random pool (-p option). This may take a while...\n", init_populate, init_pool_size);
@@ -241,31 +253,15 @@ int test_hash_rw_populate_hash(void)
 			(void *)(((unsigned long) rand_r(&rand_lookup) % init_pool_size) + init_pool_offset),
 			sizeof(void *));
 		rcu_read_lock();
-		if (add_unique) {
-			ret_node = cds_lfht_add_unique(test_ht,
+		ret_node = cds_lfht_add_replace(test_ht,
 				test_hash(node->key, node->key_len, TEST_HASH_SEED),
 				test_match, node->key, &node->node);
-		} else {
-			if (add_replace)
-				ret_node = cds_lfht_add_replace(test_ht,
-						test_hash(node->key, node->key_len, TEST_HASH_SEED),
-						test_match, node->key, &node->node);
-			else
-				cds_lfht_add(test_ht,
-					test_hash(node->key, node->key_len, TEST_HASH_SEED),
-					&node->node);
-		}
 		rcu_read_unlock();
-		if (add_unique && ret_node != &node->node) {
-			free(node);
+		if (ret_node) {
+			call_rcu(&to_test_node(ret_node)->head, free_node_cb);
 			nr_addexist++;
 		} else {
-			if (add_replace && ret_node) {
-				call_rcu(&to_test_node(ret_node)->head, free_node_cb);
-				nr_addexist++;
-			} else {
-				nr_add++;
-			}
+			nr_add++;
 		}
 		nr_writes++;
 	}
