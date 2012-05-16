@@ -1,3 +1,30 @@
+liburcu (0.6.7-3+vyatta+2) unstable; urgency=low
+
+  [ Mathieu Desnoyers ]
+  * rculfhash: fix typo
+  * rculfhash: stress requirement in documentation
+  * rculfhash test: print test name
+  * rculfhash tests: add uniqueness test
+  * rculfhash tests: add long hash chains tests
+  * rculfhash: update comments in implementation
+  * rculfhash: update API comments
+  * rculfhash: cleanup typo
+  * rculfhash: use do {} while (0) for dbg_printf()
+  * rculfhash: replace unneeded rcu_dereference by CMM_LOAD_SHARED
+  * rculfhash: fix: race between replace and del operations
+  * rculfhash tests: add missing check
+  * rculfhash: add runhash.sh test script
+  * uatomic: add memory barrier API for and/or/add/sub/inc/sub
+  * API cleanup: use "uatomic_*" in cmm_smp_mb__ API
+  * rculfhash: Ensure future-proof memory barrier semantic consistency
+  * rculfhash: document implied memory barriers
+  * Move API.txt to doc/rcu-api.txt, install in system doc/
+  * documentation: refer to rcu-api.txt
+
+  [ Stephen Hemminger ]
+
+ -- Stephen Hemminger <shemminger@vyatta.com>  Wed, 16 May 2012 08:28:37 -0700
+
 liburcu (0.6.7-3+vyatta+1) unstable; urgency=low
 
   [ Mathieu Desnoyers ]
