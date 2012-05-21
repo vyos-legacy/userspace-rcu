@@ -1,3 +1,20 @@
+liburcu (0.7.0-1+vyatta+1) unstable; urgency=low
+
+  [ Mathieu Desnoyers ]
+  * document concurrent data structures
+  * Add TLS detection m4 macro
+  * Implement urcu/tls-compat.h
+  * Use urcu/tls-compat.h
+  * Fix mremap wrapper for NetBSD 5
+  * Update return value of "set" operations
+  * Document uatomic operations
+  * Cleanup: header comments coding style
+  * Update version to 0.7.0
+
+  [ Stephen Hemminger ]
+
+ -- Stephen Hemminger <shemminger@vyatta.com>  Mon, 21 May 2012 16:10:19 -0700
+
 liburcu (0.6.7-3+vyatta+2) unstable; urgency=low
 
   [ Mathieu Desnoyers ]
