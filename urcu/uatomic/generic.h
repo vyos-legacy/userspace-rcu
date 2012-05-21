@@ -29,7 +29,7 @@ extern "C" {
 #endif
 
 #ifndef uatomic_set
-#define uatomic_set(addr, v)	CMM_STORE_SHARED(*(addr), (v))
+#define uatomic_set(addr, v)	((void) CMM_STORE_SHARED(*(addr), (v)))
 #endif
 
 #ifndef uatomic_read
@@ -41,8 +41,10 @@ static inline __attribute__((always_inline))
 void _uatomic_link_error()
 {
 #ifdef ILLEGAL_INSTR
-	/* generate an illegal instruction. Cannot catch this with linker tricks
-	 * when optimizations are disabled. */
+	/*
+	 * generate an illegal instruction. Cannot catch this with
+	 * linker tricks when optimizations are disabled.
+	 */
 	__asm__ __volatile__(ILLEGAL_INSTR);
 #else
 	__builtin_trap ();
