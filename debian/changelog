@@ -1,3 +1,15 @@
+liburcu (0.7.2-1+vyatta+1) unstable; urgency=low
+
+  [ Mathieu Desnoyers ]
+  * fix: uatomic_set return value compile fix for non-x86 arch.
+  * Update version to 0.7.1
+  * Fix library compatibility
+  * Update version to 0.7.2
+
+  [ Stephen Hemminger ]
+
+ -- Stephen Hemminger <shemminger@vyatta.com>  Thu, 24 May 2012 14:52:09 -0700
+
 liburcu (0.7.0-1+vyatta+1) unstable; urgency=low
 
   [ Mathieu Desnoyers ]
