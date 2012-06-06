@@ -1,3 +1,24 @@
+liburcu (0.7.3-1+vyatta+1) unstable; urgency=low
+
+  [ Mathieu Desnoyers ]
+  * freebsd 8.2 fix: define MAP_ANONYMOUS for compatibility
+
+  [ Hirohisa Yamaguchi ]
+  * tests: support FreeBSD short "time" args
+
+  [ Mathieu Desnoyers ]
+  * Test fix: test_perthreadlock uninitialized mutex
+  * Add coding style document
+  * Add CodingStyle to tarball
+  * Update README for OS supported, tests dependency
+  * Fix tests: make dist lib dependency
+  * Update version to 0.7.3
+  * warning fix: tests urcutorture for NetBSD 5
+
+  [ Stephen Hemminger ]
+
+ -- Stephen Hemminger <shemminger@vyatta.com>  Tue, 05 Jun 2012 22:49:25 -0700
+
 liburcu (0.7.2-1+vyatta+1) unstable; urgency=low
 
   [ Mathieu Desnoyers ]
