@@ -1,3 +1,9 @@
+liburcu (0.7.4-1+vyatta+1+pacifica2) unstable; urgency=low
+
+  * new branch
+
+ -- John Southworth <john.southworth@vyatta.com>  Fri, 12 Oct 2012 18:45:25 -0700
+
 liburcu (0.7.4-1+vyatta+1+pacifica1) unstable; urgency=low
 
   * new branch
