@@ -62,7 +62,7 @@ static inline pid_t gettid(void)
 #ifndef DYNAMIC_LINK_TEST
 #define _LGPL_SOURCE
 #else
-#define debug_yield_read()
+#define rcu_debug_yield_read()
 #endif
 #include <urcu.h>
 
@@ -84,9 +84,9 @@ static unsigned long rduration;
 /* write-side C.S. duration, in loops */
 static unsigned long wduration;
 
-static inline void loop_sleep(unsigned long l)
+static inline void loop_sleep(unsigned long loops)
 {
-	while(l-- != 0)
+	while (loops-- != 0)
 		caa_cpu_relax();
 }
 
@@ -112,9 +112,10 @@ typedef unsigned long cpu_set_t;
 
 static void set_affinity(void)
 {
+#if HAVE_SCHED_SETAFFINITY
 	cpu_set_t mask;
-	int cpu;
-	int ret;
+	int cpu, ret;
+#endif /* HAVE_SCHED_SETAFFINITY */
 
 	if (!use_affinity)
 		return;
@@ -223,7 +224,8 @@ void *thr_reader(void *_count)
 	struct test_array *local_ptr;
 
 	printf_verbose("thread_begin %s, thread id : %lx, tid %lu\n",
-			"reader", pthread_self(), (unsigned long)gettid());
+			"reader", (unsigned long) pthread_self(),
+			(unsigned long) gettid());
 
 	set_affinity();
 
@@ -237,7 +239,7 @@ void *thr_reader(void *_count)
 	for (;;) {
 		rcu_read_lock();
 		local_ptr = rcu_dereference(test_rcu_pointer);
-		debug_yield_read();
+		rcu_debug_yield_read();
 		if (local_ptr)
 			assert(local_ptr->a == 8);
 		if (caa_unlikely(rduration))
@@ -252,7 +254,8 @@ void *thr_reader(void *_count)
 
 	*count = URCU_TLS(nr_reads);
 	printf_verbose("thread_end %s, thread id : %lx, tid %lu\n",
-			"reader", pthread_self(), (unsigned long)gettid());
+			"reader", (unsigned long) pthread_self(),
+			(unsigned long) gettid());
 	return ((void*)1);
 
 }
@@ -263,7 +266,8 @@ void *thr_writer(void *_count)
 	struct test_array *new, *old;
 
 	printf_verbose("thread_begin %s, thread id : %lx, tid %lu\n",
-			"writer", pthread_self(), (unsigned long)gettid());
+			"writer", (unsigned long) pthread_self(),
+			(unsigned long) gettid());
 
 	set_affinity();
 
@@ -293,7 +297,8 @@ void *thr_writer(void *_count)
 	}
 
 	printf_verbose("thread_end %s, thread id : %lx, tid %lu\n",
-			"writer", pthread_self(), (unsigned long)gettid());
+			"writer", (unsigned long) pthread_self(),
+			(unsigned long) gettid());
 	*count = URCU_TLS(nr_writes);
 	return ((void*)2);
 }
@@ -350,10 +355,10 @@ int main(int argc, char **argv)
 		switch (argv[i][1]) {
 #ifdef DEBUG_YIELD
 		case 'r':
-			yield_active |= YIELD_READ;
+			rcu_yield_active |= RCU_YIELD_READ;
 			break;
 		case 'w':
-			yield_active |= YIELD_WRITE;
+			rcu_yield_active |= RCU_YIELD_WRITE;
 			break;
 #endif
 		case 'a':
@@ -398,7 +403,8 @@ int main(int argc, char **argv)
 	printf_verbose("Writer delay : %lu loops.\n", wdelay);
 	printf_verbose("Reader duration : %lu loops.\n", rduration);
 	printf_verbose("thread %-6s, thread id : %lx, tid %lu\n",
-			"main", pthread_self(), (unsigned long)gettid());
+			"main", (unsigned long) pthread_self(),
+			(unsigned long) gettid());
 
 	test_array = calloc(1, sizeof(*test_array) * ARRAY_SIZE);
 	tid_reader = malloc(sizeof(*tid_reader) * nr_readers);

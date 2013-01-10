@@ -6,8 +6,8 @@
  *
  * Userspace RCU header.
  *
- * TO BE INCLUDED ONLY IN LGPL-COMPATIBLE CODE. See urcu.h for linking
- * dynamically with the userspace rcu library.
+ * TO BE INCLUDED ONLY IN CODE THAT IS TO BE RECOMPILED ON EACH LIBURCU
+ * RELEASE. See urcu.h for linking dynamically with the userspace rcu library.
  *
  * Copyright (c) 2009 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
  * Copyright (c) 2009 Paul E. McKenney, IBM Corporation.
@@ -96,6 +96,12 @@ extern "C" {
 #define SIGRCU SIGUSR1
 #endif
 
+enum rcu_state {
+	RCU_READER_ACTIVE_CURRENT,
+	RCU_READER_ACTIVE_OLD,
+	RCU_READER_INACTIVE,
+};
+
 #ifdef DEBUG_RCU
 #define rcu_assert(args...)	assert(args)
 #else
@@ -108,8 +114,8 @@ extern "C" {
 #include <pthread.h>
 #include <unistd.h>
 
-#define YIELD_READ 	(1 << 0)
-#define YIELD_WRITE	(1 << 1)
+#define RCU_YIELD_READ 	(1 << 0)
+#define RCU_YIELD_WRITE	(1 << 1)
 
 /*
  * Updates with RCU_SIGNAL are much slower. Account this in the delay.
@@ -121,37 +127,37 @@ extern "C" {
 #define MAX_SLEEP 50
 #endif
 
-extern unsigned int yield_active;
-extern DECLARE_URCU_TLS(unsigned int, rand_yield);
+extern unsigned int rcu_yield_active;
+extern DECLARE_URCU_TLS(unsigned int, rcu_rand_yield);
 
-static inline void debug_yield_read(void)
+static inline void rcu_debug_yield_read(void)
 {
-	if (yield_active & YIELD_READ)
-		if (rand_r(&URCU_TLS(rand_yield)) & 0x1)
-			usleep(rand_r(&URCU_TLS(rand_yield)) % MAX_SLEEP);
+	if (rcu_yield_active & RCU_YIELD_READ)
+		if (rand_r(&URCU_TLS(rcu_rand_yield)) & 0x1)
+			usleep(rand_r(&URCU_TLS(rcu_rand_yield)) % MAX_SLEEP);
 }
 
-static inline void debug_yield_write(void)
+static inline void rcu_debug_yield_write(void)
 {
-	if (yield_active & YIELD_WRITE)
-		if (rand_r(&URCU_TLS(rand_yield)) & 0x1)
-			usleep(rand_r(&URCU_TLS(rand_yield)) % MAX_SLEEP);
+	if (rcu_yield_active & RCU_YIELD_WRITE)
+		if (rand_r(&URCU_TLS(rcu_rand_yield)) & 0x1)
+			usleep(rand_r(&URCU_TLS(rcu_rand_yield)) % MAX_SLEEP);
 }
 
-static inline void debug_yield_init(void)
+static inline void rcu_debug_yield_init(void)
 {
-	URCU_TLS(rand_yield) = time(NULL) ^ (unsigned long) pthread_self();
+	URCU_TLS(rcu_rand_yield) = time(NULL) ^ (unsigned long) pthread_self();
 }
 #else
-static inline void debug_yield_read(void)
+static inline void rcu_debug_yield_read(void)
 {
 }
 
-static inline void debug_yield_write(void)
+static inline void rcu_debug_yield_write(void)
 {
 }
 
-static inline void debug_yield_init(void)
+static inline void rcu_debug_yield_init(void)
 {
 
 }
@@ -173,11 +179,11 @@ static inline void debug_yield_init(void)
 #define RCU_MB_GROUP		MB_GROUP_ALL
 
 #ifdef RCU_MEMBARRIER
-extern int has_sys_membarrier;
+extern int rcu_has_sys_membarrier;
 
 static inline void smp_mb_slave(int group)
 {
-	if (caa_likely(has_sys_membarrier))
+	if (caa_likely(rcu_has_sys_membarrier))
 		cmm_barrier();
 	else
 		cmm_smp_mb();
@@ -225,21 +231,21 @@ struct rcu_reader {
 
 extern DECLARE_URCU_TLS(struct rcu_reader, rcu_reader);
 
-extern int32_t gp_futex;
+extern int32_t rcu_gp_futex;
 
 /*
  * Wake-up waiting synchronize_rcu(). Called from many concurrent threads.
  */
 static inline void wake_up_gp(void)
 {
-	if (caa_unlikely(uatomic_read(&gp_futex) == -1)) {
-		uatomic_set(&gp_futex, 0);
-		futex_async(&gp_futex, FUTEX_WAKE, 1,
+	if (caa_unlikely(uatomic_read(&rcu_gp_futex) == -1)) {
+		uatomic_set(&rcu_gp_futex, 0);
+		futex_async(&rcu_gp_futex, FUTEX_WAKE, 1,
 		      NULL, NULL, 0);
 	}
 }
 
-static inline int rcu_gp_ongoing(unsigned long *ctr)
+static inline enum rcu_state rcu_reader_state(unsigned long *ctr)
 {
 	unsigned long v;
 
@@ -248,50 +254,78 @@ static inline int rcu_gp_ongoing(unsigned long *ctr)
 	 * to insure consistency.
 	 */
 	v = CMM_LOAD_SHARED(*ctr);
-	return (v & RCU_GP_CTR_NEST_MASK) &&
-		 ((v ^ rcu_gp_ctr) & RCU_GP_CTR_PHASE);
+	if (!(v & RCU_GP_CTR_NEST_MASK))
+		return RCU_READER_INACTIVE;
+	if (!((v ^ rcu_gp_ctr) & RCU_GP_CTR_PHASE))
+		return RCU_READER_ACTIVE_CURRENT;
+	return RCU_READER_ACTIVE_OLD;
 }
 
+/*
+ * Helper for _rcu_read_lock().  The format of rcu_gp_ctr (as well as
+ * the per-thread rcu_reader.ctr) has the upper bits containing a count of
+ * _rcu_read_lock() nesting, and a lower-order bit that contains either zero
+ * or RCU_GP_CTR_PHASE.  The smp_mb_slave() ensures that the accesses in
+ * _rcu_read_lock() happen before the subsequent read-side critical section.
+ */
+static inline void _rcu_read_lock_update(unsigned long tmp)
+{
+	if (caa_likely(!(tmp & RCU_GP_CTR_NEST_MASK))) {
+		_CMM_STORE_SHARED(URCU_TLS(rcu_reader).ctr, _CMM_LOAD_SHARED(rcu_gp_ctr));
+		smp_mb_slave(RCU_MB_GROUP);
+	} else
+		_CMM_STORE_SHARED(URCU_TLS(rcu_reader).ctr, tmp + RCU_GP_COUNT);
+}
+
+/*
+ * Enter an RCU read-side critical section.
+ *
+ * The first cmm_barrier() call ensures that the compiler does not reorder
+ * the body of _rcu_read_lock() with a mutex.
+ *
+ * This function and its helper are both less than 10 lines long.  The
+ * intent is that this function meets the 10-line criterion in LGPL,
+ * allowing this function to be invoked directly from non-LGPL code.
+ */
 static inline void _rcu_read_lock(void)
 {
 	unsigned long tmp;
 
-	cmm_barrier();	/* Ensure the compiler does not reorder us with mutex */
+	cmm_barrier();
 	tmp = URCU_TLS(rcu_reader).ctr;
-	/*
-	 * rcu_gp_ctr is
-	 *   RCU_GP_COUNT | (~RCU_GP_CTR_PHASE or RCU_GP_CTR_PHASE)
-	 */
-	if (caa_likely(!(tmp & RCU_GP_CTR_NEST_MASK))) {
-		_CMM_STORE_SHARED(URCU_TLS(rcu_reader).ctr, _CMM_LOAD_SHARED(rcu_gp_ctr));
-		/*
-		 * Set active readers count for outermost nesting level before
-		 * accessing the pointer. See smp_mb_master().
-		 */
-		smp_mb_slave(RCU_MB_GROUP);
-	} else {
-		_CMM_STORE_SHARED(URCU_TLS(rcu_reader).ctr, tmp + RCU_GP_COUNT);
-	}
+	_rcu_read_lock_update(tmp);
 }
 
+/*
+ * This is a helper function for _rcu_read_unlock().
+ *
+ * The first smp_mb_slave() call ensures that the critical section is
+ * seen to precede the store to rcu_reader.ctr.
+ * The second smp_mb_slave() call ensures that we write to rcu_reader.ctr
+ * before reading the update-side futex.
+ */
+static inline void _rcu_read_unlock_update_and_wakeup(unsigned long tmp)
+{
+	if (caa_likely((tmp & RCU_GP_CTR_NEST_MASK) == RCU_GP_COUNT)) {
+		smp_mb_slave(RCU_MB_GROUP);
+		_CMM_STORE_SHARED(URCU_TLS(rcu_reader).ctr, URCU_TLS(rcu_reader).ctr - RCU_GP_COUNT);
+		smp_mb_slave(RCU_MB_GROUP);
+		wake_up_gp();
+	} else
+		_CMM_STORE_SHARED(URCU_TLS(rcu_reader).ctr, URCU_TLS(rcu_reader).ctr - RCU_GP_COUNT);
+}
+
+/*
+ * Exit an RCU read-side crtical section.  Both this function and its
+ * helper are smaller than 10 lines of code, and are intended to be
+ * usable by non-LGPL code, as called out in LGPL.
+ */
 static inline void _rcu_read_unlock(void)
 {
 	unsigned long tmp;
 
 	tmp = URCU_TLS(rcu_reader).ctr;
-	/*
-	 * Finish using rcu before decrementing the pointer.
-	 * See smp_mb_master().
-	 */
-	if (caa_likely((tmp & RCU_GP_CTR_NEST_MASK) == RCU_GP_COUNT)) {
-		smp_mb_slave(RCU_MB_GROUP);
-		_CMM_STORE_SHARED(URCU_TLS(rcu_reader).ctr, URCU_TLS(rcu_reader).ctr - RCU_GP_COUNT);
-		/* write URCU_TLS(rcu_reader).ctr before read futex */
-		smp_mb_slave(RCU_MB_GROUP);
-		wake_up_gp();
-	} else {
-		_CMM_STORE_SHARED(URCU_TLS(rcu_reader).ctr, URCU_TLS(rcu_reader).ctr - RCU_GP_COUNT);
-	}
+	_rcu_read_unlock_update_and_wakeup(tmp);
 	cmm_barrier();	/* Ensure the compiler does not reorder us with mutex */
 }
 

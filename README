@@ -22,6 +22,7 @@ BUILDING
 		Forcing a 32-bit build for Sparcv9 (typical for Sparc v9)
 		* CFLAGS="-m32 -Wa,-Av9a -g -O2" ./configure
 
+
 ARCHITECTURES SUPPORTED
 -----------------------
 
@@ -64,6 +65,19 @@ tree configuration.
 
 Test scripts provided in the tests/ directory of the source tree depend
 on "bash" and the "seq" program.
+
+
+API
+---
+
+See the relevant API documentation files in doc/. The APIs provided by
+Userspace RCU are, by prefix:
+
+- rcu_ : Read-Copy Update
+- cmm_ : Concurrent Memory Model
+- caa_ : Concurrent Architecture Abstraction
+- cds_ : Concurrent Data Structures
+- uatomic_: Userspace Atomic
 
 
 QUICK START GUIDE
@@ -189,11 +203,12 @@ Being careful with signals
 	signal(7). The liburcu-mb and liburcu-qsbr versions of the Userspace RCU
 	library do not require any signal.
 
-	Read-side critical sections are allowed in a signal handler with
-	liburcu and liburcu-mb. Be careful, however, to disable these signals
+	Read-side critical sections are allowed in a signal handler,
+	except those setup with sigaltstack(2), with liburcu and
+	liburcu-mb. Be careful, however, to disable these signals
 	between thread creation and calls to rcu_register_thread(), because a
-	signal handler nesting on an unregistered thread would not be allowed to
-	call rcu_read_lock().
+	signal handler nesting on an unregistered thread would not be
+	allowed to call rcu_read_lock().
 
 	Read-side critical sections are _not_ allowed in a signal handler with
 	liburcu-qsbr, unless signals are disabled explicitly around each
@@ -258,4 +273,24 @@ Interaction with fork()
 	must invoke call_rcu_before_fork() before the fork() and
 	call_rcu_after_fork_parent() after the fork().  The child
 	process must invoke call_rcu_after_fork_child().
-	These three APIs are suitable for passing to pthread_atfork().
+	Even though these three APIs are suitable for passing to
+	pthread_atfork(), use of pthread_atfork() is *STRONGLY
+	DISCOURAGED* for programs calling the glibc memory allocator
+	(malloc(), calloc(), free(), ...) within call_rcu callbacks.
+	This is due to limitations in the way glibc memory allocator
+	handles calls to the memory allocator from concurrent threads
+	while the pthread_atfork() handlers are executing.
+	Combining e.g.:
+	* call to free() from callbacks executed within call_rcu worker
+	  threads,
+	* executing call_rcu atfork handlers within the glibc pthread
+	  atfork mechanism,
+	will sometimes trigger interesting process hangs. This usually
+	hangs on a memory allocator lock within glibc.
+
+Thread Local Storage (TLS)
+
+	Userspace RCU can fall back on pthread_getspecific() to emulate
+	TLS variables on systems where it is not available. This behavior
+	can be forced by specifying --disable-compiler-tls as configure
+	argument.

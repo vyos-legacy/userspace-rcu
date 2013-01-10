@@ -67,7 +67,6 @@ static inline pid_t gettid(void)
 #endif
 #include <urcu.h>
 #include <urcu/cds.h>
-#include <urcu-defer.h>
 
 static volatile int test_go, test_stop;
 
@@ -78,9 +77,9 @@ static unsigned long duration;
 /* read-side C.S. duration, in loops */
 static unsigned long wdelay;
 
-static inline void loop_sleep(unsigned long l)
+static inline void loop_sleep(unsigned long loops)
 {
-	while(l-- != 0)
+	while (loops-- != 0)
 		caa_cpu_relax();
 }
 
@@ -106,9 +105,10 @@ typedef unsigned long cpu_set_t;
 
 static void set_affinity(void)
 {
+#if HAVE_SCHED_SETAFFINITY
 	cpu_set_t mask;
-	int cpu;
-	int ret;
+	int cpu, ret;
+#endif /* HAVE_SCHED_SETAFFINITY */
 
 	if (!use_affinity)
 		return;
@@ -170,7 +170,8 @@ void *thr_enqueuer(void *_count)
 	unsigned long long *count = _count;
 
 	printf_verbose("thread_begin %s, thread id : %lx, tid %lu\n",
-			"enqueuer", pthread_self(), (unsigned long)gettid());
+			"enqueuer", (unsigned long) pthread_self(),
+			(unsigned long) gettid());
 
 	set_affinity();
 
@@ -205,7 +206,8 @@ fail:
 	count[1] = URCU_TLS(nr_successful_enqueues);
 	printf_verbose("enqueuer thread_end, thread id : %lx, tid %lu, "
 		       "enqueues %llu successful_enqueues %llu\n",
-		       pthread_self(), (unsigned long)gettid(),
+		       pthread_self(),
+			(unsigned long) gettid(),
 		       URCU_TLS(nr_enqueues), URCU_TLS(nr_successful_enqueues));
 	return ((void*)1);
 
@@ -222,18 +224,13 @@ void free_node_cb(struct rcu_head *head)
 void *thr_dequeuer(void *_count)
 {
 	unsigned long long *count = _count;
-	int ret;
 
 	printf_verbose("thread_begin %s, thread id : %lx, tid %lu\n",
-			"dequeuer", pthread_self(), (unsigned long)gettid());
+			"dequeuer", (unsigned long) pthread_self(),
+			(unsigned long) gettid());
 
 	set_affinity();
 
-	ret = rcu_defer_register_thread();
-	if (ret) {
-		printf("Error in rcu_defer_register_thread\n");
-		exit(-1);
-	}
 	rcu_register_thread();
 
 	while (!test_go)
@@ -243,14 +240,15 @@ void *thr_dequeuer(void *_count)
 
 	for (;;) {
 		struct cds_lfq_node_rcu *qnode;
-		struct test *node;
 
 		rcu_read_lock();
 		qnode = cds_lfq_dequeue_rcu(&q);
-		node = caa_container_of(qnode, struct test, list);
 		rcu_read_unlock();
 
-		if (node) {
+		if (qnode) {
+			struct test *node;
+
+			node = caa_container_of(qnode, struct test, list);
 			call_rcu(&node->rcu, free_node_cb);
 			URCU_TLS(nr_successful_dequeues)++;
 		}
@@ -263,10 +261,10 @@ void *thr_dequeuer(void *_count)
 	}
 
 	rcu_unregister_thread();
-	rcu_defer_unregister_thread();
 	printf_verbose("dequeuer thread_end, thread id : %lx, tid %lu, "
 		       "dequeues %llu, successful_dequeues %llu\n",
-		       pthread_self(), (unsigned long)gettid(),
+		       pthread_self(),
+			(unsigned long) gettid(),
 		       URCU_TLS(nr_dequeues), URCU_TLS(nr_successful_dequeues));
 	count[0] = URCU_TLS(nr_dequeues);
 	count[1] = URCU_TLS(nr_successful_dequeues);
@@ -374,7 +372,8 @@ int main(int argc, char **argv)
 	printf_verbose("Writer delay : %lu loops.\n", rduration);
 	printf_verbose("Reader duration : %lu loops.\n", wdelay);
 	printf_verbose("thread %-6s, thread id : %lx, tid %lu\n",
-			"main", pthread_self(), (unsigned long)gettid());
+			"main", (unsigned long) pthread_self(),
+			(unsigned long) gettid());
 
 	tid_enqueuer = malloc(sizeof(*tid_enqueuer) * nr_enqueuers);
 	tid_dequeuer = malloc(sizeof(*tid_dequeuer) * nr_dequeuers);

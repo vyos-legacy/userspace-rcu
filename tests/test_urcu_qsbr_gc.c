@@ -89,9 +89,9 @@ static struct reclaim_queue *pending_reclaims;
 /* write-side C.S. duration, in loops */
 static unsigned long wduration;
 
-static inline void loop_sleep(unsigned long l)
+static inline void loop_sleep(unsigned long loops)
 {
-	while(l-- != 0)
+	while (loops-- != 0)
 		caa_cpu_relax();
 }
 
@@ -117,9 +117,10 @@ typedef unsigned long cpu_set_t;
 
 static void set_affinity(void)
 {
+#if HAVE_SCHED_SETAFFINITY
 	cpu_set_t mask;
-	int cpu;
-	int ret;
+	int cpu, ret;
+#endif /* HAVE_SCHED_SETAFFINITY */
 
 	if (!use_affinity)
 		return;
@@ -198,7 +199,8 @@ void *thr_reader(void *_count)
 	struct test_array *local_ptr;
 
 	printf_verbose("thread_begin %s, thread id : %lx, tid %lu\n",
-			"reader", pthread_self(), (unsigned long)gettid());
+			"reader", (unsigned long) pthread_self(),
+			(unsigned long) gettid());
 
 	set_affinity();
 
@@ -212,7 +214,7 @@ void *thr_reader(void *_count)
 	for (;;) {
 		_rcu_read_lock();
 		local_ptr = _rcu_dereference(test_rcu_pointer);
-		debug_yield_read();
+		rcu_debug_yield_read();
 		if (local_ptr)
 			assert(local_ptr->a == 8);
 		if (caa_unlikely(rduration))
@@ -230,7 +232,8 @@ void *thr_reader(void *_count)
 
 	*count = URCU_TLS(nr_reads);
 	printf_verbose("thread_end %s, thread id : %lx, tid %lu\n",
-			"reader", pthread_self(), (unsigned long)gettid());
+			"reader", (unsigned long) pthread_self(),
+			(unsigned long) gettid());
 	return ((void*)1);
 
 }
@@ -276,7 +279,8 @@ void *thr_writer(void *data)
 #endif
 
 	printf_verbose("thread_begin %s, thread id : %lx, tid %lu\n",
-			"writer", pthread_self(), (unsigned long)gettid());
+			"writer", (unsigned long) pthread_self(),
+			(unsigned long) gettid());
 
 	set_affinity();
 
@@ -302,7 +306,8 @@ void *thr_writer(void *data)
 	}
 
 	printf_verbose("thread_end %s, thread id : %lx, tid %lu\n",
-			"writer", pthread_self(), (unsigned long)gettid());
+			"writer", (unsigned long) pthread_self(),
+			(unsigned long) gettid());
 	tot_nr_writes[wtidx] = URCU_TLS(nr_writes);
 	return ((void*)2);
 }
@@ -360,10 +365,10 @@ int main(int argc, char **argv)
 		switch (argv[i][1]) {
 #ifdef DEBUG_YIELD
 		case 'r':
-			yield_active |= YIELD_READ;
+			rcu_yield_active |= RCU_YIELD_READ;
 			break;
 		case 'w':
-			yield_active |= YIELD_WRITE;
+			rcu_yield_active |= RCU_YIELD_WRITE;
 			break;
 #endif
 		case 'a':
@@ -415,7 +420,8 @@ int main(int argc, char **argv)
 	printf_verbose("Writer delay : %lu loops.\n", wdelay);
 	printf_verbose("Reader duration : %lu loops.\n", rduration);
 	printf_verbose("thread %-6s, thread id : %lx, tid %lu\n",
-			"main", pthread_self(), (unsigned long)gettid());
+			"main", (unsigned long) pthread_self(),
+			(unsigned long) gettid());
 
 	tid_reader = malloc(sizeof(*tid_reader) * nr_readers);
 	tid_writer = malloc(sizeof(*tid_writer) * nr_writers);
