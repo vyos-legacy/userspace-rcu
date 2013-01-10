@@ -31,8 +31,6 @@
 #include <urcu/rculfstack.h>
 #include <urcu/rculfhash.h>
 #include <urcu/wfqueue.h>
-#include <urcu/wfcqueue.h>
 #include <urcu/wfstack.h>
-#include <urcu/lfstack.h>
 
 #endif /* _URCU_CDS_H */

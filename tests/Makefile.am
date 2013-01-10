@@ -14,15 +14,10 @@ noinst_PROGRAMS = test_urcu test_urcu_dynamic_link test_urcu_timing \
         test_uatomic test_urcu_assign test_urcu_assign_dynamic_link \
         test_urcu_bp test_urcu_bp_dynamic_link test_cycles_per_loop \
 	test_urcu_lfq test_urcu_wfq test_urcu_lfs test_urcu_wfs \
-	test_urcu_lfs_rcu \
-	test_urcu_wfcq \
 	test_urcu_wfq_dynlink test_urcu_wfs_dynlink \
-	test_urcu_wfcq_dynlink \
 	test_urcu_lfq_dynlink test_urcu_lfs_dynlink test_urcu_hash \
-	test_urcu_lfs_rcu_dynlink \
-	test_urcu_multiflavor test_urcu_multiflavor_dynlink \
 	test_urcu_fork
-noinst_HEADERS = rcutorture.h test_urcu_multiflavor.h
+noinst_HEADERS = rcutorture.h
 
 if COMPAT_ARCH
 COMPAT=$(top_srcdir)/compat_arch_@ARCHTYPE@.c
@@ -34,14 +29,14 @@ if COMPAT_FUTEX
 COMPAT+=$(top_srcdir)/compat_futex.c
 endif
 
-URCU=$(top_srcdir)/urcu.c $(top_srcdir)/urcu-pointer.c $(top_srcdir)/wfcqueue.c $(COMPAT)
-URCU_QSBR=$(top_srcdir)/urcu-qsbr.c $(top_srcdir)/urcu-pointer.c $(top_srcdir)/wfcqueue.c $(COMPAT)
+URCU=$(top_srcdir)/urcu.c $(top_srcdir)/urcu-pointer.c $(top_srcdir)/wfqueue.c $(COMPAT)
+URCU_QSBR=$(top_srcdir)/urcu-qsbr.c $(top_srcdir)/urcu-pointer.c $(top_srcdir)/wfqueue.c $(COMPAT)
 # URCU_MB uses urcu.c but -DRCU_MB must be defined
-URCU_MB=$(top_srcdir)/urcu.c $(top_srcdir)/urcu-pointer.c $(top_srcdir)/wfcqueue.c $(COMPAT)
+URCU_MB=$(top_srcdir)/urcu.c $(top_srcdir)/urcu-pointer.c $(top_srcdir)/wfqueue.c $(COMPAT)
 # URCU_SIGNAL uses urcu.c but -DRCU_SIGNAL must be defined
-URCU_SIGNAL=$(top_srcdir)/urcu.c $(top_srcdir)/urcu-pointer.c $(top_srcdir)/wfcqueue.c $(COMPAT)
-URCU_BP=$(top_srcdir)/urcu-bp.c $(top_srcdir)/urcu-pointer.c $(top_srcdir)/wfcqueue.c $(COMPAT)
-URCU_DEFER=$(top_srcdir)/urcu.c $(top_srcdir)/urcu-pointer.c $(top_srcdir)/wfcqueue.c $(COMPAT)
+URCU_SIGNAL=$(top_srcdir)/urcu.c $(top_srcdir)/urcu-pointer.c $(top_srcdir)/wfqueue.c $(COMPAT)
+URCU_BP=$(top_srcdir)/urcu-bp.c $(top_srcdir)/urcu-pointer.c $(top_srcdir)/wfqueue.c $(COMPAT)
+URCU_DEFER=$(top_srcdir)/urcu.c $(top_srcdir)/urcu-pointer.c $(top_srcdir)/wfqueue.c $(COMPAT)
 
 URCU_COMMON_LIB=$(top_builddir)/liburcu-common.la
 URCU_LIB=$(top_builddir)/liburcu.la
@@ -176,26 +171,12 @@ test_urcu_wfq_dynlink_SOURCES = test_urcu_wfq.c
 test_urcu_wfq_dynlink_CFLAGS = -DDYNAMIC_LINK_TEST $(AM_CFLAGS)
 test_urcu_wfq_dynlink_LDADD = $(URCU_COMMON_LIB)
 
-test_urcu_wfcq_SOURCES = test_urcu_wfcq.c $(COMPAT)
-test_urcu_wfcq_LDADD = $(URCU_COMMON_LIB)
-
-test_urcu_wfcq_dynlink_SOURCES = test_urcu_wfcq.c
-test_urcu_wfcq_dynlink_CFLAGS = -DDYNAMIC_LINK_TEST $(AM_CFLAGS)
-test_urcu_wfcq_dynlink_LDADD = $(URCU_COMMON_LIB)
-
 test_urcu_lfs_SOURCES = test_urcu_lfs.c $(URCU)
 test_urcu_lfs_LDADD = $(URCU_CDS_LIB)
-
-test_urcu_lfs_rcu_SOURCES = test_urcu_lfs_rcu.c $(URCU)
-test_urcu_lfs_rcu_LDADD = $(URCU_CDS_LIB)
 
 test_urcu_lfs_dynlink_SOURCES = test_urcu_lfs.c $(URCU)
 test_urcu_lfs_dynlink_CFLAGS = -DDYNAMIC_LINK_TEST $(AM_CFLAGS)
 test_urcu_lfs_dynlink_LDADD = $(URCU_CDS_LIB)
-
-test_urcu_lfs_rcu_dynlink_SOURCES = test_urcu_lfs_rcu.c $(URCU)
-test_urcu_lfs_rcu_dynlink_CFLAGS = -DDYNAMIC_LINK_TEST $(AM_CFLAGS)
-test_urcu_lfs_rcu_dynlink_LDADD = $(URCU_CDS_LIB)
 
 test_urcu_wfs_SOURCES = test_urcu_wfs.c $(COMPAT)
 test_urcu_wfs_LDADD = $(URCU_COMMON_LIB)
@@ -208,25 +189,6 @@ test_urcu_hash_SOURCES = test_urcu_hash.c test_urcu_hash.h \
 		test_urcu_hash_rw.c test_urcu_hash_unique.c $(COMPAT)
 test_urcu_hash_CFLAGS = -DRCU_QSBR $(AM_CFLAGS)
 test_urcu_hash_LDADD = $(URCU_QSBR_LIB) $(URCU_CDS_LIB)
-
-test_urcu_multiflavor_SOURCES = test_urcu_multiflavor.c \
-	test_urcu_multiflavor-memb.c \
-	test_urcu_multiflavor-mb.c \
-	test_urcu_multiflavor-signal.c \
-	test_urcu_multiflavor-qsbr.c \
-	test_urcu_multiflavor-bp.c
-test_urcu_multiflavor_LDADD = $(URCU_LIB) $(URCU_MB_LIB) \
-	$(URCU_SIGNAL_LIB) $(URCU_QSBR_LIB) $(URCU_BP_LIB)
-
-test_urcu_multiflavor_dynlink_SOURCES = test_urcu_multiflavor.c \
-	test_urcu_multiflavor-memb.c \
-	test_urcu_multiflavor-mb.c \
-	test_urcu_multiflavor-signal.c \
-	test_urcu_multiflavor-qsbr.c \
-	test_urcu_multiflavor-bp.c
-test_urcu_multiflavor_dynlink_CFLAGS = -DDYNAMIC_LINK_TEST $(AM_CFLAGS)
-test_urcu_multiflavor_dynlink_LDADD = $(URCU_LIB) $(URCU_MB_LIB) \
-	$(URCU_SIGNAL_LIB) $(URCU_QSBR_LIB) $(URCU_BP_LIB)
 
 urcutorture.c: api.h
 

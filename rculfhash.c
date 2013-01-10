@@ -129,7 +129,7 @@
  *  - cds_lfht_first followed iteration with cds_lfht_next (and/or
  *    cds_lfht_next_duplicate, although less common).
  *
- * We define "write" operations as any of cds_lfht_add, cds_lfht_replace,
+ * We define "write" operations as any of cds_lfht_add,
  * cds_lfht_add_unique (success), cds_lfht_add_replace, cds_lfht_del.
  *
  * When cds_lfht_add_unique succeeds (returns the node passed as
@@ -381,8 +381,7 @@ uint8_t bit_reverse_u8(uint8_t v)
 	return BitReverseTable256[v];
 }
 
-#if (CAA_BITS_PER_LONG == 32)
-static
+static __attribute__((unused))
 uint32_t bit_reverse_u32(uint32_t v)
 {
 	return ((uint32_t) bit_reverse_u8(v) << 24) | 
@@ -390,8 +389,8 @@ uint32_t bit_reverse_u32(uint32_t v)
 		((uint32_t) bit_reverse_u8(v >> 16) << 8) | 
 		((uint32_t) bit_reverse_u8(v >> 24));
 }
-#else
-static
+
+static __attribute__((unused))
 uint64_t bit_reverse_u64(uint64_t v)
 {
 	return ((uint64_t) bit_reverse_u8(v) << 56) | 
@@ -403,7 +402,6 @@ uint64_t bit_reverse_u64(uint64_t v)
 		((uint64_t) bit_reverse_u8(v >> 48) << 8) |
 		((uint64_t) bit_reverse_u8(v >> 56));
 }
-#endif
 
 static
 unsigned long bit_reverse_ulong(unsigned long v)
@@ -591,6 +589,8 @@ static void ht_init_nr_cpus_mask(void)
 static
 void alloc_split_items_count(struct cds_lfht *ht)
 {
+	struct ht_items_count *count;
+
 	if (nr_cpus_mask == -1)	{
 		ht_init_nr_cpus_mask();
 		if (nr_cpus_mask < 0)
@@ -602,8 +602,7 @@ void alloc_split_items_count(struct cds_lfht *ht)
 	assert(split_count_mask >= 0);
 
 	if (ht->flags & CDS_LFHT_ACCOUNTING) {
-		ht->split_count = calloc(split_count_mask + 1,
-					sizeof(struct ht_items_count));
+		ht->split_count = calloc(split_count_mask + 1, sizeof(*count));
 		assert(ht->split_count);
 	} else {
 		ht->split_count = NULL;
@@ -1668,14 +1667,12 @@ int cds_lfht_replace(struct cds_lfht *ht,
 
 int cds_lfht_del(struct cds_lfht *ht, struct cds_lfht_node *node)
 {
-	unsigned long size;
+	unsigned long size, hash;
 	int ret;
 
 	size = rcu_dereference(ht->size);
 	ret = _cds_lfht_del(ht, size, node);
 	if (!ret) {
-		unsigned long hash;
-
 		hash = bit_reverse_ulong(node->reverse_hash);
 		ht_count_del(ht, size, hash);
 	}

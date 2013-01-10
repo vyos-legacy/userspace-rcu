@@ -61,9 +61,9 @@ static inline pid_t gettid(void)
 #endif
 #include <urcu.h>
 
-static inline void loop_sleep(unsigned long loops)
+static inline void loop_sleep(unsigned long l)
 {
-	while (loops-- != 0)
+	while(l-- != 0)
 		caa_cpu_relax();
 }
 

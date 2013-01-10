@@ -136,10 +136,9 @@ static pthread_mutex_t rcu_copy_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 void set_affinity(void)
 {
-#if HAVE_SCHED_SETAFFINITY
 	cpu_set_t mask;
-	int cpu, ret;
-#endif /* HAVE_SCHED_SETAFFINITY */
+	int cpu;
+	int ret;
 
 	if (!use_affinity)
 		return;
@@ -161,7 +160,7 @@ void set_affinity(void)
 #if SCHED_SETAFFINITY_ARGS == 2
 	sched_setaffinity(0, &mask);
 #else
-	sched_setaffinity(0, sizeof(mask), &mask);
+        sched_setaffinity(0, sizeof(mask), &mask);
 #endif
 #endif /* HAVE_SCHED_SETAFFINITY */
 }
@@ -188,7 +187,7 @@ void rcu_copy_mutex_unlock(void)
 }
 
 unsigned long test_compare(const void *key1, size_t key1_len,
-			   const void *key2, size_t key2_len)
+                           const void *key2, size_t key2_len)
 {
 	if (caa_unlikely(key1_len != key2_len))
 		return -1;
@@ -299,6 +298,7 @@ printf("        [not -u nor -s] Add entries (supports redundant keys).\n");
 
 int main(int argc, char **argv)
 {
+	int err;
 	pthread_t *tid_reader, *tid_writer;
 	pthread_t tid_count;
 	void *tret;
@@ -308,37 +308,31 @@ int main(int argc, char **argv)
 		tot_add = 0, tot_add_exist = 0, tot_remove = 0;
 	unsigned long count;
 	long approx_before, approx_after;
-	int i, a, ret, err, mainret = 0;
+	int i, a, ret;
 	struct sigaction act;
 	unsigned int remain;
-	unsigned int nr_readers_created = 0, nr_writers_created = 0;
-	long long nr_leaked;
 
 	if (argc < 4) {
 		show_usage(argc, argv);
-		mainret = 1;
-		goto end;
+		return -1;
 	}
 
 	err = sscanf(argv[1], "%u", &nr_readers);
 	if (err != 1) {
 		show_usage(argc, argv);
-		mainret = 1;
-		goto end;
+		return -1;
 	}
 
 	err = sscanf(argv[2], "%u", &nr_writers);
 	if (err != 1) {
 		show_usage(argc, argv);
-		mainret = 1;
-		goto end;
+		return -1;
 	}
 	
 	err = sscanf(argv[3], "%lu", &duration);
 	if (err != 1) {
 		show_usage(argc, argv);
-		mainret = 1;
-		goto end;
+		return -1;
 	}
 
 	for (i = 4; i < argc; i++) {
@@ -356,8 +350,7 @@ int main(int argc, char **argv)
 		case 'a':
 			if (argc < i + 2) {
 				show_usage(argc, argv);
-				mainret = 1;
-				goto end;
+				return -1;
 			}
 			a = atoi(argv[++i]);
 			cpu_affinities[next_aff++] = a;
@@ -367,16 +360,14 @@ int main(int argc, char **argv)
 		case 'c':
 			if (argc < i + 2) {
 				show_usage(argc, argv);
-				mainret = 1;
-				goto end;
+				return -1;
 			}
 			rduration = atol(argv[++i]);
 			break;
 		case 'd':
 			if (argc < i + 2) {
 				show_usage(argc, argv);
-				mainret = 1;
-				goto end;
+				return -1;
 			}
 			wdelay = atol(argv[++i]);
 			break;
@@ -386,24 +377,21 @@ int main(int argc, char **argv)
 		case 'h':
 			if (argc < i + 2) {
 				show_usage(argc, argv);
-				mainret = 1;
-				goto end;
+				return -1;
 			}
 			init_hash_size = atol(argv[++i]);
 			break;
 		case 'm':
 			if (argc < i + 2) {
 				show_usage(argc, argv);
-				mainret = 1;
-				goto end;
+				return -1;
 			}
 			min_hash_alloc_size = atol(argv[++i]);
 			break;
 		case 'n':
 			if (argc < i + 2) {
 				show_usage(argc, argv);
-				mainret = 1;
-				goto end;
+				return -1;
 			}
 			max_hash_buckets_size = atol(argv[++i]);
 			break;
@@ -433,8 +421,7 @@ int main(int argc, char **argv)
 		case 'B':
 			if (argc < i + 2) {
 				show_usage(argc, argv);
-				mainret = 1;
-				goto end;
+				return -1;
 			}
 			i++;
 			if (!strcmp("order", argv[i]))
@@ -443,10 +430,9 @@ int main(int argc, char **argv)
 				memory_backend = &cds_lfht_mm_chunk;
 			else if (!strcmp("mmap", argv[i]))
 				memory_backend = &cds_lfht_mm_mmap;
-			else {
+                        else {
 				printf("Please specify memory backend with order|chunk|mmap.\n");
-				mainret = 1;
-				goto end;
+				exit(-1);
 			}
 			break;
 		case 'R':
@@ -483,47 +469,53 @@ int main(int argc, char **argv)
 	if (init_hash_size && init_hash_size & (init_hash_size - 1)) {
 		printf("Error: Initial number of buckets (%lu) is not a power of 2.\n",
 			init_hash_size);
-		mainret = 1;
-		goto end;
+		return -1;
 	}
 
 	if (min_hash_alloc_size && min_hash_alloc_size & (min_hash_alloc_size - 1)) {
 		printf("Error: Minimum number of allocated buckets (%lu) is not a power of 2.\n",
 			min_hash_alloc_size);
-		mainret = 1;
-		goto end;
+		return -1;
 	}
 
 	if (max_hash_buckets_size && max_hash_buckets_size & (max_hash_buckets_size - 1)) {
 		printf("Error: Maximum number of buckets (%lu) is not a power of 2.\n",
 			max_hash_buckets_size);
-		mainret = 1;
-		goto end;
+		return -1;
 	}
 
 	memset(&act, 0, sizeof(act));
 	ret = sigemptyset(&act.sa_mask);
 	if (ret == -1) {
 		perror("sigemptyset");
-		mainret = 1;
-		goto end;
+		return -1;
 	}
 	act.sa_handler = get_sigusr1_cb();
 	act.sa_flags = SA_RESTART;
 	ret = sigaction(SIGUSR1, &act, NULL);
 	if (ret == -1) {
 		perror("sigaction");
-		mainret = 1;
-		goto end;
+		return -1;
 	}
+
+	ret = pipe(count_pipe);
+	if (ret == -1) {
+		perror("pipe");
+		return -1;
+	}
+
+	/* spawn counter thread */
+	err = pthread_create(&tid_count, NULL, thr_count,
+			     NULL);
+	if (err != 0)
+		exit(1);
 
 	act.sa_handler = get_sigusr2_cb();
 	act.sa_flags = SA_RESTART;
 	ret = sigaction(SIGUSR2, &act, NULL);
 	if (ret == -1) {
 		perror("sigaction");
-		mainret = 1;
-		goto end;
+		return -1;
 	}
 
 	printf_verbose("running test for %lu seconds, %u readers, %u writers.\n",
@@ -549,25 +541,9 @@ int main(int argc, char **argv)
 			(unsigned long) gettid());
 
 	tid_reader = malloc(sizeof(*tid_reader) * nr_readers);
-	if (!tid_reader) {
-		mainret = 1;
-		goto end;
-	}
 	tid_writer = malloc(sizeof(*tid_writer) * nr_writers);
-	if (!tid_writer) {
-		mainret = 1;
-		goto end_free_tid_reader;
-	}
 	count_reader = malloc(sizeof(*count_reader) * nr_readers);
-	if (!count_reader) {
-		mainret = 1;
-		goto end_free_tid_writer;
-	}
 	count_writer = malloc(sizeof(*count_writer) * nr_writers);
-	if (!count_writer) {
-		mainret = 1;
-		goto end_free_count_reader;
-	}
 
 	err = create_all_cpu_call_rcu_data(0);
 	if (err) {
@@ -588,8 +564,7 @@ int main(int argc, char **argv)
 	}
 	if (!test_ht) {
 		printf("Error allocating hash table.\n");
-		mainret = 1;
-		goto end_free_call_rcu_data;
+		return -1;
 	}
 
 	/*
@@ -597,53 +572,26 @@ int main(int argc, char **argv)
 	 * thread from the point of view of resize.
 	 */
 	rcu_register_thread();
-	ret = (get_populate_hash_cb())();
+      	ret = (get_populate_hash_cb())();
 	assert(!ret);
 
 	rcu_thread_offline();
 
 	next_aff = 0;
 
-	ret = pipe(count_pipe);
-	if (ret == -1) {
-		perror("pipe");
-		mainret = 1;
-		goto end_online;
-	}
-
-	/* spawn counter thread */
-	err = pthread_create(&tid_count, NULL, thr_count,
-			     NULL);
-	if (err != 0) {
-		errno = err;
-		mainret = 1;
-		perror("pthread_create");
-		goto end_close_pipe;
-	}
-
 	for (i = 0; i < nr_readers; i++) {
 		err = pthread_create(&tid_reader[i],
 				     NULL, get_thr_reader_cb(),
 				     &count_reader[i]);
-		if (err != 0) {
-			errno = err;
-			mainret = 1;
-			perror("pthread_create");
-			goto end_pthread_join;
-		}
-		nr_readers_created++;
+		if (err != 0)
+			exit(1);
 	}
 	for (i = 0; i < nr_writers; i++) {
 		err = pthread_create(&tid_writer[i],
 				     NULL, get_thr_writer_cb(),
 				     &count_writer[i]);
-		if (err != 0) {
-			errno = err;
-			mainret = 1;
-			perror("pthread_create");
-			goto end_pthread_join;
-		}
-		nr_writers_created++;
+		if (err != 0)
+			exit(1);
 	}
 
 	cmm_smp_mb();
@@ -657,23 +605,16 @@ int main(int argc, char **argv)
 
 	test_stop = 1;
 
-end_pthread_join:
-	for (i = 0; i < nr_readers_created; i++) {
+	for (i = 0; i < nr_readers; i++) {
 		err = pthread_join(tid_reader[i], &tret);
-		if (err != 0) {
-			errno = err;
-			mainret = 1;
-			perror("pthread_join");
-		}
+		if (err != 0)
+			exit(1);
 		tot_reads += count_reader[i];
 	}
-	for (i = 0; i < nr_writers_created; i++) {
+	for (i = 0; i < nr_writers; i++) {
 		err = pthread_join(tid_writer[i], &tret);
-		if (err != 0) {
-			errno = err;
-			mainret = 1;
-			perror("pthread_join");
-		}
+		if (err != 0)
+			exit(1);
 		tot_writes += count_writer[i].update_ops;
 		tot_add += count_writer[i].add;
 		tot_add_exist += count_writer[i].add_exist;
@@ -685,8 +626,8 @@ end_pthread_join:
 	act.sa_flags = SA_RESTART;
 	ret = sigaction(SIGUSR2, &act, NULL);
 	if (ret == -1) {
-		mainret = 1;
 		perror("sigaction");
+		return -1;
 	}
 	{
 		char msg[1] = { 0x42 };
@@ -697,22 +638,10 @@ end_pthread_join:
 		} while (ret == -1L && errno == EINTR);
 	}
 	err = pthread_join(tid_count, &tret);
-	if (err != 0) {
-		errno = err;
-		mainret = 1;
-		perror("pthread_join");
-	}
+	if (err != 0)
+		exit(1);
 
-end_close_pipe:
-	for (i = 0; i < 2; i++) {
-		err = close(count_pipe[i]);
-		if (err) {
-			mainret = 1;
-			perror("close pipe");
-		}
-	}
 	fflush(stdout);
-end_online:
 	rcu_thread_online();
 	rcu_read_lock();
 	printf("Counting nodes... ");
@@ -730,17 +659,13 @@ end_online:
 		printf("Approximation after node accounting: %ld nodes.\n",
 			approx_after);
 	}
-
 	ret = cds_lfht_destroy(test_ht, NULL);
-	if (ret) {
+	if (ret)
 		printf_verbose("final delete aborted\n");
-		mainret = 1;
-	} else {
+	else
 		printf_verbose("final delete success\n");
-	}
 	printf_verbose("total number of reads : %llu, writes %llu\n", tot_reads,
 	       tot_writes);
-	nr_leaked = (long long) tot_add + init_populate - tot_remove - count;
 	printf("SUMMARY %-25s testdur %4lu nr_readers %3u rdur %6lu "
 		"nr_writers %3u "
 		"wdelay %6lu nr_reads %12llu nr_writes %12llu nr_ops %12llu "
@@ -748,25 +673,12 @@ end_online:
 		argv[0], duration, nr_readers, rduration,
 		nr_writers, wdelay, tot_reads, tot_writes,
 		tot_reads + tot_writes, tot_add, tot_add_exist, tot_remove,
-		nr_leaked);
-	if (nr_leaked != 0) {
-		mainret = 1;
-		printf("WARNING: %lld nodes were leaked!\n", nr_leaked);
-	}
-
+		(long long) tot_add + init_populate - tot_remove - count);
 	rcu_unregister_thread();
-end_free_call_rcu_data:
 	free_all_cpu_call_rcu_data();
-	free(count_writer);
-end_free_count_reader:
-	free(count_reader);
-end_free_tid_writer:
-	free(tid_writer);
-end_free_tid_reader:
 	free(tid_reader);
-end:
-	if (!mainret)
-		exit(EXIT_SUCCESS);
-	else
-		exit(EXIT_FAILURE);
+	free(tid_writer);
+	free(count_reader);
+	free(count_writer);
+	return 0;
 }

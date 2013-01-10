@@ -58,20 +58,14 @@ extern "C" {
 #define rcu_assert(args...)
 #endif
 
-enum rcu_state {
-	RCU_READER_ACTIVE_CURRENT,
-	RCU_READER_ACTIVE_OLD,
-	RCU_READER_INACTIVE,
-};
-
 #ifdef DEBUG_YIELD
 #include <sched.h>
 #include <time.h>
 #include <pthread.h>
 #include <unistd.h>
 
-#define RCU_YIELD_READ 	(1 << 0)
-#define RCU_YIELD_WRITE	(1 << 1)
+#define YIELD_READ 	(1 << 0)
+#define YIELD_WRITE	(1 << 1)
 
 /*
  * Updates without RCU_MB are much slower. Account this in
@@ -80,37 +74,37 @@ enum rcu_state {
 /* maximum sleep delay, in us */
 #define MAX_SLEEP 50
 
-extern unsigned int rcu_yield_active;
-extern DECLARE_URCU_TLS(unsigned int, rcu_rand_yield);
+extern unsigned int yield_active;
+extern DECLARE_URCU_TLS(unsigned int, rand_yield);
 
-static inline void rcu_debug_yield_read(void)
+static inline void debug_yield_read(void)
 {
-	if (rcu_yield_active & RCU_YIELD_READ)
-		if (rand_r(&URCU_TLS(rcu_rand_yield)) & 0x1)
-			usleep(rand_r(&URCU_TLS(rcu_rand_yield)) % MAX_SLEEP);
+	if (yield_active & YIELD_READ)
+		if (rand_r(&URCU_TLS(rand_yield)) & 0x1)
+			usleep(rand_r(&URCU_TLS(rand_yield)) % MAX_SLEEP);
 }
 
-static inline void rcu_debug_yield_write(void)
+static inline void debug_yield_write(void)
 {
-	if (rcu_yield_active & RCU_YIELD_WRITE)
-		if (rand_r(&URCU_TLS(rcu_rand_yield)) & 0x1)
-			usleep(rand_r(&URCU_TLS(rcu_rand_yield)) % MAX_SLEEP);
+	if (yield_active & YIELD_WRITE)
+		if (rand_r(&URCU_TLS(rand_yield)) & 0x1)
+			usleep(rand_r(&URCU_TLS(rand_yield)) % MAX_SLEEP);
 }
 
-static inline void rcu_debug_yield_init(void)
+static inline void debug_yield_init(void)
 {
-	URCU_TLS(rcu_rand_yield) = time(NULL) ^ (unsigned long) pthread_self();
+	URCU_TLS(rand_yield) = time(NULL) ^ (unsigned long) pthread_self();
 }
 #else
-static inline void rcu_debug_yield_read(void)
+static inline void debug_yield_read(void)
 {
 }
 
-static inline void rcu_debug_yield_write(void)
+static inline void debug_yield_write(void)
 {
 }
 
-static inline void rcu_debug_yield_init(void)
+static inline void debug_yield_init(void)
 {
 
 }
@@ -135,11 +129,11 @@ extern void rcu_bp_register(void);
  * Using a int rather than a char to eliminate false register dependencies
  * causing stalls on some architectures.
  */
-extern unsigned long rcu_gp_ctr;
+extern long rcu_gp_ctr;
 
 struct rcu_reader {
 	/* Data used by both reader and synchronize_rcu() */
-	unsigned long ctr;
+	long ctr;
 	/* Data used for registry */
 	struct cds_list_head node __attribute__((aligned(CAA_CACHE_LINE_SIZE)));
 	pthread_t tid;
@@ -153,22 +147,19 @@ struct rcu_reader {
  */
 extern DECLARE_URCU_TLS(struct rcu_reader *, rcu_reader);
 
-static inline enum rcu_state rcu_reader_state(unsigned long *ctr)
+static inline int rcu_old_gp_ongoing(long *value)
 {
-	unsigned long v;
+	long v;
 
-	if (ctr == NULL)
-		return RCU_READER_INACTIVE;
+	if (value == NULL)
+		return 0;
 	/*
 	 * Make sure both tests below are done on the same version of *value
 	 * to insure consistency.
 	 */
-	v = CMM_LOAD_SHARED(*ctr);
-	if (!(v & RCU_GP_CTR_NEST_MASK))
-		return RCU_READER_INACTIVE;
-	if (!((v ^ rcu_gp_ctr) & RCU_GP_CTR_PHASE))
-		return RCU_READER_ACTIVE_CURRENT;
-	return RCU_READER_ACTIVE_OLD;
+	v = CMM_LOAD_SHARED(*value);
+	return (v & RCU_GP_CTR_NEST_MASK) &&
+		 ((v ^ rcu_gp_ctr) & RCU_GP_CTR_PHASE);
 }
 
 /*
@@ -199,7 +190,7 @@ static inline void _rcu_read_lock_update(unsigned long tmp)
  */
 static inline void _rcu_read_lock(void)
 {
-	unsigned long tmp;
+	long tmp;
 
 	if (caa_unlikely(!URCU_TLS(rcu_reader)))
 		rcu_bp_register(); /* If not yet registered. */

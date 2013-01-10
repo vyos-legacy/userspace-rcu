@@ -96,7 +96,7 @@ void *test_hash_unique_thr_reader(void *_count)
 		}
 		rcu_read_unlock();
 
-		rcu_debug_yield_read();
+		debug_yield_read();
 		if (caa_unlikely(rduration))
 			loop_sleep(rduration);
 		URCU_TLS(nr_reads)++;

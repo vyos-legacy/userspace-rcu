@@ -93,7 +93,7 @@ void *test_hash_rw_thr_reader(void *_count)
 		} else {
 			URCU_TLS(lookup_ok)++;
 		}
-		rcu_debug_yield_read();
+		debug_yield_read();
 		if (caa_unlikely(rduration))
 			loop_sleep(rduration);
 		rcu_read_unlock();

@@ -36,7 +36,7 @@
 #include <unistd.h>
 #include <sys/mman.h>
 
-#include "urcu/wfcqueue.h"
+#include "urcu/wfqueue.h"
 #include "urcu/map/urcu-bp.h"
 #include "urcu/static/urcu-bp.h"
 #include "urcu-pointer.h"
@@ -105,8 +105,8 @@ void __attribute__((destructor)) rcu_bp_exit(void);
 static pthread_mutex_t rcu_gp_lock = PTHREAD_MUTEX_INITIALIZER;
 
 #ifdef DEBUG_YIELD
-unsigned int rcu_yield_active;
-DEFINE_URCU_TLS(unsigned int, rcu_rand_yield);
+unsigned int yield_active;
+DEFINE_URCU_TLS(unsigned int, rand_yield);
 #endif
 
 /*
@@ -115,7 +115,7 @@ DEFINE_URCU_TLS(unsigned int, rcu_rand_yield);
  * Also has a RCU_GP_COUNT of 1, to accelerate the reader fast path.
  * Written to only by writer with mutex taken. Read by both writer and readers.
  */
-unsigned long rcu_gp_ctr = RCU_GP_COUNT;
+long rcu_gp_ctr = RCU_GP_COUNT;
 
 /*
  * Pointer to registry elements. Written to only by each individual reader. Read
@@ -164,44 +164,40 @@ static void mutex_unlock(pthread_mutex_t *mutex)
 		urcu_die(ret);
 }
 
-static void wait_for_readers(struct cds_list_head *input_readers,
-			struct cds_list_head *cur_snap_readers,
-			struct cds_list_head *qsreaders)
+void update_counter_and_wait(void)
 {
+	CDS_LIST_HEAD(qsreaders);
 	int wait_loops = 0;
 	struct rcu_reader *index, *tmp;
 
+	/* Switch parity: 0 -> 1, 1 -> 0 */
+	CMM_STORE_SHARED(rcu_gp_ctr, rcu_gp_ctr ^ RCU_GP_CTR_PHASE);
+
 	/*
-	 * Wait for each thread URCU_TLS(rcu_reader).ctr to either
-	 * indicate quiescence (not nested), or observe the current
-	 * rcu_gp_ctr value.
+	 * Must commit qparity update to memory before waiting for other parity
+	 * quiescent state. Failure to do so could result in the writer waiting
+	 * forever while new readers are always accessing data (no progress).
+	 * Ensured by CMM_STORE_SHARED and CMM_LOAD_SHARED.
+	 */
+
+	/*
+	 * Adding a cmm_smp_mb() which is _not_ formally required, but makes the
+	 * model easier to understand. It does not have a big performance impact
+	 * anyway, given this is the write-side.
+	 */
+	cmm_smp_mb();
+
+	/*
+	 * Wait for each thread rcu_reader.ctr count to become 0.
 	 */
 	for (;;) {
 		wait_loops++;
-		cds_list_for_each_entry_safe(index, tmp, input_readers, node) {
-			switch (rcu_reader_state(&index->ctr)) {
-			case RCU_READER_ACTIVE_CURRENT:
-				if (cur_snap_readers) {
-					cds_list_move(&index->node,
-						cur_snap_readers);
-					break;
-				}
-				/* Fall-through */
-			case RCU_READER_INACTIVE:
-				cds_list_move(&index->node, qsreaders);
-				break;
-			case RCU_READER_ACTIVE_OLD:
-				/*
-				 * Old snapshot. Leaving node in
-				 * input_readers will make us busy-loop
-				 * until the snapshot becomes current or
-				 * the reader becomes inactive.
-				 */
-				break;
-			}
+		cds_list_for_each_entry_safe(index, tmp, &registry, node) {
+			if (!rcu_old_gp_ongoing(&index->ctr))
+				cds_list_move(&index->node, &qsreaders);
 		}
 
-		if (cds_list_empty(input_readers)) {
+		if (cds_list_empty(&registry)) {
 			break;
 		} else {
 			if (wait_loops == RCU_QS_ACTIVE_ATTEMPTS)
@@ -210,12 +206,12 @@ static void wait_for_readers(struct cds_list_head *input_readers,
 				caa_cpu_relax();
 		}
 	}
+	/* put back the reader list in the registry */
+	cds_list_splice(&qsreaders, &registry);
 }
 
 void synchronize_rcu(void)
 {
-	CDS_LIST_HEAD(cur_snap_readers);
-	CDS_LIST_HEAD(qsreaders);
 	sigset_t newmask, oldmask;
 	int ret;
 
@@ -238,26 +234,9 @@ void synchronize_rcu(void)
 	rcu_gc_registry();
 
 	/*
-	 * Wait for readers to observe original parity or be quiescent.
+	 * Wait for previous parity to be empty of readers.
 	 */
-	wait_for_readers(&registry, &cur_snap_readers, &qsreaders);
-
-	/*
-	 * Adding a cmm_smp_mb() which is _not_ formally required, but makes the
-	 * model easier to understand. It does not have a big performance impact
-	 * anyway, given this is the write-side.
-	 */
-	cmm_smp_mb();
-
-	/* Switch parity: 0 -> 1, 1 -> 0 */
-	CMM_STORE_SHARED(rcu_gp_ctr, rcu_gp_ctr ^ RCU_GP_CTR_PHASE);
-
-	/*
-	 * Must commit qparity update to memory before waiting for other parity
-	 * quiescent state. Failure to do so could result in the writer waiting
-	 * forever while new readers are always accessing data (no progress).
-	 * Ensured by CMM_STORE_SHARED and CMM_LOAD_SHARED.
-	 */
+	update_counter_and_wait();	/* 0 -> 1, wait readers in parity 0 */
 
 	/*
 	 * Adding a cmm_smp_mb() which is _not_ formally required, but makes the
@@ -267,14 +246,9 @@ void synchronize_rcu(void)
 	cmm_smp_mb();
 
 	/*
-	 * Wait for readers to observe new parity or be quiescent.
+	 * Wait for previous parity to be empty of readers.
 	 */
-	wait_for_readers(&cur_snap_readers, NULL, &qsreaders);
-
-	/*
-	 * Put quiescent reader list back into registry.
-	 */
-	cds_list_splice(&qsreaders, &registry);
+	update_counter_and_wait();	/* 1 -> 0, wait readers in parity 1 */
 
 	/*
 	 * Finish waiting for reader threads before letting the old ptr being

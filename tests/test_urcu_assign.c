@@ -62,7 +62,7 @@ static inline pid_t gettid(void)
 #ifndef DYNAMIC_LINK_TEST
 #define _LGPL_SOURCE
 #else
-#define rcu_debug_yield_read()
+#define debug_yield_read()
 #endif
 #include <urcu.h>
 
@@ -84,9 +84,9 @@ static unsigned long rduration;
 /* write-side C.S. duration, in loops */
 static unsigned long wduration;
 
-static inline void loop_sleep(unsigned long loops)
+static inline void loop_sleep(unsigned long l)
 {
-	while (loops-- != 0)
+	while(l-- != 0)
 		caa_cpu_relax();
 }
 
@@ -112,10 +112,9 @@ typedef unsigned long cpu_set_t;
 
 static void set_affinity(void)
 {
-#if HAVE_SCHED_SETAFFINITY
 	cpu_set_t mask;
-	int cpu, ret;
-#endif /* HAVE_SCHED_SETAFFINITY */
+	int cpu;
+	int ret;
 
 	if (!use_affinity)
 		return;
@@ -239,7 +238,7 @@ void *thr_reader(void *_count)
 	for (;;) {
 		rcu_read_lock();
 		local_ptr = rcu_dereference(test_rcu_pointer);
-		rcu_debug_yield_read();
+		debug_yield_read();
 		if (local_ptr)
 			assert(local_ptr->a == 8);
 		if (caa_unlikely(rduration))
@@ -355,10 +354,10 @@ int main(int argc, char **argv)
 		switch (argv[i][1]) {
 #ifdef DEBUG_YIELD
 		case 'r':
-			rcu_yield_active |= RCU_YIELD_READ;
+			yield_active |= YIELD_READ;
 			break;
 		case 'w':
-			rcu_yield_active |= RCU_YIELD_WRITE;
+			yield_active |= YIELD_WRITE;
 			break;
 #endif
 		case 'a':

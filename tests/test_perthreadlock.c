@@ -90,9 +90,9 @@ static unsigned long rduration;
 /* write-side C.S. duration, in loops */
 static unsigned long wduration;
 
-static inline void loop_sleep(unsigned long loops)
+static inline void loop_sleep(unsigned long l)
 {
-	while (loops-- != 0)
+	while(l-- != 0)
 		caa_cpu_relax();
 }
 
@@ -118,10 +118,9 @@ typedef unsigned long cpu_set_t;
 
 static void set_affinity(void)
 {
-#if HAVE_SCHED_SETAFFINITY
 	cpu_set_t mask;
-	int cpu, ret;
-#endif /* HAVE_SCHED_SETAFFINITY */
+	int cpu;
+	int ret;
 
 	if (!use_affinity)
 		return;

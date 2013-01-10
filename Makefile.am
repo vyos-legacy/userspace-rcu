@@ -16,14 +16,13 @@ nobase_dist_include_HEADERS = urcu/compiler.h urcu/hlist.h urcu/list.h \
 		urcu/uatomic/generic.h urcu/arch/generic.h urcu/wfstack.h \
 		urcu/wfqueue.h urcu/rculfstack.h urcu/rculfqueue.h \
 		urcu/ref.h urcu/cds.h urcu/urcu_ref.h urcu/urcu-futex.h \
-		urcu/uatomic_arch.h urcu/rculfhash.h urcu/wfcqueue.h \
-		urcu/lfstack.h \
+		urcu/uatomic_arch.h urcu/rculfhash.h \
 		$(top_srcdir)/urcu/map/*.h \
 		$(top_srcdir)/urcu/static/*.h \
 		urcu/tls-compat.h
 nobase_nodist_include_HEADERS = urcu/arch.h urcu/uatomic.h urcu/config.h
 
-dist_noinst_HEADERS = urcu-die.h urcu-wait.h
+dist_noinst_HEADERS = urcu-die.h
 
 EXTRA_DIST = $(top_srcdir)/urcu/arch/*.h $(top_srcdir)/urcu/uatomic/*.h \
 		gpl-2.0.txt lgpl-2.1.txt lgpl-relicensing.txt \
@@ -54,7 +53,7 @@ lib_LTLIBRARIES = liburcu-common.la \
 # liburcu-common contains wait-free queues (needed by call_rcu) as well
 # as futex fallbacks.
 #
-liburcu_common_la_SOURCES = wfqueue.c wfcqueue.c wfstack.c $(COMPAT)
+liburcu_common_la_SOURCES = wfqueue.c wfstack.c $(COMPAT)
 
 liburcu_la_SOURCES = urcu.c urcu-pointer.c $(COMPAT)
 liburcu_la_LIBADD = liburcu-common.la
@@ -73,8 +72,7 @@ liburcu_signal_la_LIBADD = liburcu-common.la
 liburcu_bp_la_SOURCES = urcu-bp.c urcu-pointer.c $(COMPAT)
 liburcu_bp_la_LIBADD = liburcu-common.la
 
-liburcu_cds_la_SOURCES = rculfqueue.c rculfstack.c lfstack.c \
-	$(RCULFHASH) $(COMPAT)
+liburcu_cds_la_SOURCES = rculfqueue.c rculfstack.c $(RCULFHASH) $(COMPAT)
 liburcu_cds_la_LIBADD = liburcu-common.la
 
 pkgconfigdir = $(libdir)/pkgconfig

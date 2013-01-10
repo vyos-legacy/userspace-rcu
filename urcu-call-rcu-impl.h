@@ -21,7 +21,6 @@
  */
 
 #define _GNU_SOURCE
-#define _LGPL_SOURCE
 #include <stdio.h>
 #include <pthread.h>
 #include <signal.h>
@@ -36,7 +35,7 @@
 #include <sched.h>
 
 #include "config.h"
-#include "urcu/wfcqueue.h"
+#include "urcu/wfqueue.h"
 #include "urcu-call-rcu.h"
 #include "urcu-pointer.h"
 #include "urcu/list.h"
@@ -47,15 +46,7 @@
 /* Data structure that identifies a call_rcu thread. */
 
 struct call_rcu_data {
-	/*
-	 * We do not align head on a different cache-line than tail
-	 * mainly because call_rcu callback-invocation threads use
-	 * batching ("splice") to get an entire list of callbacks, which
-	 * effectively empties the queue, and requires to touch the tail
-	 * anyway.
-	 */
-	struct cds_wfcq_tail cbs_tail;
-	struct cds_wfcq_head cbs_head;
+	struct cds_wfq_queue cbs;
 	unsigned long flags;
 	int32_t futex;
 	unsigned long qlen; /* maintained for debugging. */
@@ -69,7 +60,7 @@ struct call_rcu_data {
  * Protected by call_rcu_mutex.
  */
 
-static CDS_LIST_HEAD(call_rcu_data_list);
+CDS_LIST_HEAD(call_rcu_data_list);
 
 /* Link a thread using call_rcu() to its call_rcu thread. */
 
@@ -230,7 +221,10 @@ static void call_rcu_wake_up(struct call_rcu_data *crdp)
 static void *call_rcu_thread(void *arg)
 {
 	unsigned long cbcount;
-	struct call_rcu_data *crdp = (struct call_rcu_data *) arg;
+	struct cds_wfq_node *cbs;
+	struct cds_wfq_node **cbs_tail;
+	struct call_rcu_data *crdp = (struct call_rcu_data *)arg;
+	struct rcu_head *rhp;
 	int rt = !!(uatomic_read(&crdp->flags) & URCU_CALL_RCU_RT);
 	int ret;
 
@@ -250,11 +244,6 @@ static void *call_rcu_thread(void *arg)
 		cmm_smp_mb();
 	}
 	for (;;) {
-		struct cds_wfcq_head cbs_tmp_head;
-		struct cds_wfcq_tail cbs_tmp_tail;
-		struct cds_wfcq_node *cbs, *cbs_tmp_n;
-		enum cds_wfcq_ret splice_ret;
-
 		if (uatomic_read(&crdp->flags) & URCU_CALL_RCU_PAUSE) {
 			/*
 			 * Pause requested. Become quiescent: remove
@@ -270,31 +259,35 @@ static void *call_rcu_thread(void *arg)
 			rcu_register_thread();
 		}
 
-		cds_wfcq_init(&cbs_tmp_head, &cbs_tmp_tail);
-		splice_ret = __cds_wfcq_splice_blocking(&cbs_tmp_head,
-			&cbs_tmp_tail, &crdp->cbs_head, &crdp->cbs_tail);
-		assert(splice_ret != CDS_WFCQ_RET_WOULDBLOCK);
-		assert(splice_ret != CDS_WFCQ_RET_DEST_NON_EMPTY);
-		if (splice_ret != CDS_WFCQ_RET_SRC_EMPTY) {
+		if (&crdp->cbs.head != _CMM_LOAD_SHARED(crdp->cbs.tail)) {
+			while ((cbs = _CMM_LOAD_SHARED(crdp->cbs.head)) == NULL)
+				poll(NULL, 0, 1);
+			_CMM_STORE_SHARED(crdp->cbs.head, NULL);
+			cbs_tail = (struct cds_wfq_node **)
+				uatomic_xchg(&crdp->cbs.tail, &crdp->cbs.head);
 			synchronize_rcu();
 			cbcount = 0;
-			__cds_wfcq_for_each_blocking_safe(&cbs_tmp_head,
-					&cbs_tmp_tail, cbs, cbs_tmp_n) {
-				struct rcu_head *rhp;
-
-				rhp = caa_container_of(cbs,
-					struct rcu_head, next);
+			do {
+				while (cbs->next == NULL &&
+				       &cbs->next != cbs_tail)
+				       	poll(NULL, 0, 1);
+				if (cbs == &crdp->cbs.dummy) {
+					cbs = cbs->next;
+					continue;
+				}
+				rhp = (struct rcu_head *)cbs;
+				cbs = cbs->next;
 				rhp->func(rhp);
 				cbcount++;
-			}
+			} while (cbs != NULL);
 			uatomic_sub(&crdp->qlen, cbcount);
 		}
 		if (uatomic_read(&crdp->flags) & URCU_CALL_RCU_STOP)
 			break;
 		rcu_thread_offline();
 		if (!rt) {
-			if (cds_wfcq_empty(&crdp->cbs_head,
-					&crdp->cbs_tail)) {
+			if (&crdp->cbs.head
+			    == _CMM_LOAD_SHARED(crdp->cbs.tail)) {
 				call_rcu_wait(crdp);
 				poll(NULL, 0, 10);
 				uatomic_dec(&crdp->futex);
@@ -340,7 +333,7 @@ static void call_rcu_data_init(struct call_rcu_data **crdpp,
 	if (crdp == NULL)
 		urcu_die(errno);
 	memset(crdp, '\0', sizeof(*crdp));
-	cds_wfcq_init(&crdp->cbs_head, &crdp->cbs_tail);
+	cds_wfq_init(&crdp->cbs);
 	crdp->qlen = 0;
 	crdp->futex = 0;
 	crdp->flags = flags;
@@ -613,12 +606,12 @@ void call_rcu(struct rcu_head *head,
 {
 	struct call_rcu_data *crdp;
 
-	cds_wfcq_node_init(&head->next);
+	cds_wfq_node_init(&head->next);
 	head->func = func;
 	/* Holding rcu read-side lock across use of per-cpu crdp */
 	rcu_read_lock();
 	crdp = get_call_rcu_data();
-	cds_wfcq_enqueue(&crdp->cbs_head, &crdp->cbs_tail, &head->next);
+	cds_wfq_enqueue(&crdp->cbs, &head->next);
 	uatomic_inc(&crdp->qlen);
 	wake_call_rcu_thread(crdp);
 	rcu_read_unlock();
@@ -645,13 +638,13 @@ void call_rcu(struct rcu_head *head,
  * The caller must wait for a grace-period to pass between return from
  * set_cpu_call_rcu_data() and call to call_rcu_data_free() passing the
  * previous call rcu data as argument.
- *
- * Note: introducing __cds_wfcq_splice_blocking() in this function fixed
- * a list corruption bug in the 0.7.x series. The equivalent fix
- * appeared in 0.6.8 for the stable-0.6 branch.
  */
 void call_rcu_data_free(struct call_rcu_data *crdp)
 {
+	struct cds_wfq_node *cbs;
+	struct cds_wfq_node **cbs_tail;
+	struct cds_wfq_node **cbs_endprev;
+
 	if (crdp == NULL || crdp == default_call_rcu_data) {
 		return;
 	}
@@ -661,12 +654,18 @@ void call_rcu_data_free(struct call_rcu_data *crdp)
 		while ((uatomic_read(&crdp->flags) & URCU_CALL_RCU_STOPPED) == 0)
 			poll(NULL, 0, 1);
 	}
-	if (!cds_wfcq_empty(&crdp->cbs_head, &crdp->cbs_tail)) {
+	if (&crdp->cbs.head != _CMM_LOAD_SHARED(crdp->cbs.tail)) {
+		while ((cbs = _CMM_LOAD_SHARED(crdp->cbs.head)) == NULL)
+			poll(NULL, 0, 1);
+		_CMM_STORE_SHARED(crdp->cbs.head, NULL);
+		cbs_tail = (struct cds_wfq_node **)
+			uatomic_xchg(&crdp->cbs.tail, &crdp->cbs.head);
 		/* Create default call rcu data if need be */
 		(void) get_default_call_rcu_data();
-		__cds_wfcq_splice_blocking(&default_call_rcu_data->cbs_head,
-			&default_call_rcu_data->cbs_tail,
-			&crdp->cbs_head, &crdp->cbs_tail);
+		cbs_endprev = (struct cds_wfq_node **)
+			uatomic_xchg(&default_call_rcu_data->cbs.tail,
+					cbs_tail);
+		_CMM_STORE_SHARED(*cbs_endprev, cbs);
 		uatomic_add(&default_call_rcu_data->qlen,
 			    uatomic_read(&crdp->qlen));
 		wake_call_rcu_thread(default_call_rcu_data);
