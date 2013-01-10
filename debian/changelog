@@ -1,3 +1,142 @@
+liburcu (0.7.6-1+vyatta+1) unstable; urgency=low
+
+  [ Mathieu Desnoyers ]
+  * Documentation: update LICENSE file
+  * Document sigaltstack(2) limitation
+
+  [ Lai Jiangshan ]
+  * urcu: add notice to URCU_TLS() for it is not strictly async-signal-safe
+
+  [ Mathieu Desnoyers ]
+  * tls-compat.h: document sigaltstack(2) limitation
+
+  [ Paul E. McKenney ]
+  * Ensure that read-side functions meet 10-line LGPL criterion
+
+  [ Mathieu Desnoyers ]
+  * wfcqueue: implement concurrency-efficient queue
+  * wfcqueue test
+  * call_rcu: use wfcqueue, eliminate false-sharing
+  * Fix urcu-call-rcu-impl.h: false-sharing
+  * wfcqueue documentation: hint at for_each iterators
+  * wfcqueue: update credits in patch documentation
+  * call_rcu: remove head field alignement, explain wfcqueue motivation
+  * Fix: call_rcu list corruption on teardown (documentation)
+  * Fix: urcu-bp, urcu, urcu-qsbr should include wfcqueue
+  * Add wfcqueue header to cds.h
+  * Fix: call_rcu list corruption on teardown
+  * Version 0.7.5
+  * Test cleanup: replace "l" parameter by "loops"
+  * Document APIs in README
+  * wfcqueue: clarify locking usage
+
+  [ Lai Jiangshan ]
+  * test_urcu_lfs: test for the proper pointer
+  * test_urcu_lfs: remove rcu_defer_register_thread() from test_urcu_lfs
+  * test_urcu_lfq: test for the proper pointer
+  * test_urcu_lfq: remove rcu_defer_register_thread() from test_urcu_lfq
+
+  [ Mathieu Desnoyers ]
+  * wfcqueue: remove ancient comment
+  * Cleanup: fix cppcheck errors
+  * rculfhash: add missing extern
+  * rculfhash test: fix trivial memleak and return node leak and errors
+  * wfstack: implement cds_wfs_pop_all and iterators, document API
+  * wfstack: implement pop_all and iteration tests
+  * lfstack: implement lock-free stack
+  * lfstack: implement test
+  * lfstack: implement empty, pop_all and iterators, document API
+  * lfstack: test pop_all and pop
+  * wfcqueue: introduce nonblocking API
+  * Deprecate rculfstack
+  * Deprecate wfqueue
+  * Update cds-api.txt following API deprecations
+  * Comment fix: update associated LGPL header name
+  * Update wfstack copyright notice
+  * wfstack.c: update copyright notice
+  * deprecation: fix build with gcc < 4.5
+  * Fix static linking: add missing static
+  * Fix static linking: add missing static to thr_defer
+  * Fix static linking: fix symbol name namespaces
+  * Add multiflavor test program
+  * tests: report error value for make check
+  * Fix static linking: add missing static for _defer_rcu
+  * test_urcu_lfs: cleanup
+  * test_urcu_wfs: cleanup
+  * test_urcu_wfcq: add splice and nosync tests
+  * Fix: cross-build: configure.ac should use --target, not --host
+  * Revert "Fix: cross-build: configure.ac should use --target, not --host"
+
+  [ Christian Babeux ]
+  * Fallback mechanism not working on platform where TLS is unsupported
+  * Fallback mechanism not working on platform where TLS is unsupported
+
+  [ Mathieu Desnoyers ]
+  * Cleanup: cast pthread_self() return value to unsigned long
+  * Cleanup: cast pthread_self() return value to unsigned long
+  * Fix TLS detection: test with linker, add --disable-compiler-tls
+  * Fix TLS detection: test with linker, add --disable-compiler-tls
+  * urcu-qsbr: skip Q.S. reporting if already reported
+
+  [ Simon Marchi ]
+  * runtests: Make path of time binary configurable
+
+  [ Paul E. McKenney ]
+  * wfcqueue: Fix lock and unlock functions
+
+  [ Mathieu Desnoyers ]
+  * Fix: wfcqueue nonblocking dequeue
+  * wfcqueue: enqueue and splice return queue state
+  * test wfcqueue: add tests for queue state return value
+  * urcu-call-rcu: use wait-free splice return value
+  * wfcqueue: document empty criterion
+  * wfcqueue: implement mutex-free splice
+  * urcu-qsbr: improve 2-phase wait scheme
+  * urcu-mb/signal/membarrier: improve 2-phase wait scheme
+  * urcu-bp: improve 2-phase wait scheme
+  * urcu-qsbr: move offline threads to separate list
+  * urcu-mb/signal/membarrier: move quiescent threads to separate list
+  * urcu-bp: move quiescent threads to separate list
+  * tests: use standard malloc/free for synchronize_rcu()
+  * urcu-qsbr: batch concurrent synchronize_rcu()
+  * urcu-wait: move wait code into separate file
+  * urcu-wait: move queue management code into urcu-wait.h
+  * urcu-mb/signal/membarrier: batch concurrent synchronize_rcu()
+  * test wfcqueue: enforce external mutex if needed by default
+  * test wfstack: enforce external mutex if needed by default
+  * wfstack: document first/next return values
+  * wfstack test: test if number of push to empty vs pop_all match
+  * wfstack API: rename cds_wfs_first_blocking to cds_wfs_first
+  * wfstack: update comments about cds_wfs_empty/first being wait-free
+  * wfcqueue: document first/next return values
+  * wfstack: implement nonblocking pop and next
+
+  [ Lai Jiangshan ]
+  * urcu: remove the wrong comma
+  * urcu: declare test_urcu_multiflavor functions
+
+  [ Mathieu Desnoyers ]
+  * test wfs: remove unneeded urcu.h include
+  * test wfcq: remove unneeded urcu.h include
+  * documentation: fix rcu-api.txt duplicates
+
+  [ Lai Jiangshan ]
+  * urcu: fix comments for cds_list_for_each_prev()
+  * rculfhash: add cds_lfht_replace to the write operations in the comments
+
+  [ Mathieu Desnoyers ]
+  * test: fork handling
+  * Fix call_rcu fork handling
+  * Discourage use of pthread_atfork() for call_rcu handlers
+  * test: fork handling
+  * Fix call_rcu fork handling
+  * Discourage use of pthread_atfork() for call_rcu handlers
+  * Version 0.7.6
+
+  [ Stephen Hemminger ]
+
+ -- Stephen Hemminger <shemminger@vyatta.com>  Thu, 10 Jan 2013 09:40:44 -0800
+
 liburcu (0.7.4-1+vyatta+2) unstable; urgency=low
 
   * new branch
