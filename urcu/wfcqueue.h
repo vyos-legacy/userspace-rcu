@@ -2,7 +2,7 @@
 #define _URCU_WFCQUEUE_H
 
 /*
- * wfcqueue.h
+ * urcu/wfcqueue.h
  *
  * Userspace RCU library - Concurrent Queue with Wait-Free Enqueue/Blocking Dequeue
  *
@@ -42,6 +42,15 @@ extern "C" {
  * half-wait-free/half-blocking queue implementation done by Paul E.
  * McKenney.
  */
+
+#define CDS_WFCQ_WOULDBLOCK	((void *) -1UL)
+
+enum cds_wfcq_ret {
+	CDS_WFCQ_RET_WOULDBLOCK =	-1,
+	CDS_WFCQ_RET_DEST_EMPTY =	0,
+	CDS_WFCQ_RET_DEST_NON_EMPTY =	1,
+	CDS_WFCQ_RET_SRC_EMPTY = 	2,
+};
 
 struct cds_wfcq_node {
 	struct cds_wfcq_node *next;
@@ -86,18 +95,43 @@ struct cds_wfcq_tail {
 #define __cds_wfcq_first_blocking	___cds_wfcq_first_blocking
 #define __cds_wfcq_next_blocking	___cds_wfcq_next_blocking
 
+/*
+ * Locking ensured by caller by holding cds_wfcq_dequeue_lock().
+ * Non-blocking: deque, first, next return CDS_WFCQ_WOULDBLOCK if they
+ * need to block. splice returns nonzero if it needs to block.
+ */
+#define __cds_wfcq_dequeue_nonblocking	___cds_wfcq_dequeue_nonblocking
+#define __cds_wfcq_splice_nonblocking	___cds_wfcq_splice_nonblocking
+#define __cds_wfcq_first_nonblocking	___cds_wfcq_first_nonblocking
+#define __cds_wfcq_next_nonblocking	___cds_wfcq_next_nonblocking
+
 #else /* !_LGPL_SOURCE */
 
 /*
  * Mutual exclusion of cds_wfcq_* / __cds_wfcq_* API
  *
- * Unless otherwise stated, the caller must ensure mutual exclusion of
- * queue update operations "dequeue" and "splice" (for source queue).
- * Queue read operations "first" and "next", which are used by
- * "for_each" iterations, need to be protected against concurrent
- * "dequeue" and "splice" (for source queue) by the caller.
- * "enqueue", "splice" (for destination queue), and "empty" are the only
- * operations that can be used without any mutual exclusion.
+ * Synchronization table:
+ *
+ * External synchronization techniques described in the API below is
+ * required between pairs marked with "X". No external synchronization
+ * required between pairs marked with "-".
+ *
+ * Legend:
+ * [1] cds_wfcq_enqueue
+ * [2] __cds_wfcq_splice (destination queue)
+ * [3] __cds_wfcq_dequeue
+ * [4] __cds_wfcq_splice (source queue)
+ * [5] __cds_wfcq_first
+ * [6] __cds_wfcq_next
+ *
+ *     [1] [2] [3] [4] [5] [6]
+ * [1]  -   -   -   -   -   -
+ * [2]  -   -   -   -   -   -
+ * [3]  -   -   X   X   X   X
+ * [4]  -   -   X   -   X   X
+ * [5]  -   -   X   X   -   -
+ * [6]  -   -   X   X   -   -
+ *
  * Mutual exclusion can be ensured by holding cds_wfcq_dequeue_lock().
  *
  * For convenience, cds_wfcq_dequeue_blocking() and
@@ -144,8 +178,11 @@ extern void cds_wfcq_dequeue_unlock(struct cds_wfcq_head *head,
  *
  * Issues a full memory barrier before enqueue. No mutual exclusion is
  * required.
+ *
+ * Returns false if the queue was empty prior to adding the node.
+ * Returns true otherwise.
  */
-extern void cds_wfcq_enqueue(struct cds_wfcq_head *head,
+extern bool cds_wfcq_enqueue(struct cds_wfcq_head *head,
 		struct cds_wfcq_tail *tail,
 		struct cds_wfcq_node *node);
 
@@ -171,15 +208,18 @@ extern struct cds_wfcq_node *cds_wfcq_dequeue_blocking(
  * consistent, but no other memory ordering is ensured.
  * Mutual exlusion with cds_wfcq_dequeue_blocking and dequeue lock is
  * ensured.
+ *
+ * Returns enum cds_wfcq_ret which indicates the state of the src or
+ * dest queue. Cannot block.
  */
-extern void cds_wfcq_splice_blocking(
+extern enum cds_wfcq_ret cds_wfcq_splice_blocking(
 		struct cds_wfcq_head *dest_q_head,
 		struct cds_wfcq_tail *dest_q_tail,
 		struct cds_wfcq_head *src_q_head,
 		struct cds_wfcq_tail *src_q_tail);
 
 /*
- * __cds_wfcq_dequeue_blocking:
+ * __cds_wfcq_dequeue_blocking: dequeue a node from a wait-free queue.
  *
  * Content written into the node before enqueue is guaranteed to be
  * consistent, but no other memory ordering is ensured.
@@ -192,16 +232,38 @@ extern struct cds_wfcq_node *__cds_wfcq_dequeue_blocking(
 		struct cds_wfcq_tail *tail);
 
 /*
+ * __cds_wfcq_dequeue_nonblocking: dequeue a node from a wait-free queue.
+ *
+ * Same as __cds_wfcq_dequeue_blocking, but returns CDS_WFCQ_WOULDBLOCK
+ * if it needs to block.
+ */
+extern struct cds_wfcq_node *__cds_wfcq_dequeue_nonblocking(
+		struct cds_wfcq_head *head,
+		struct cds_wfcq_tail *tail);
+
+/*
  * __cds_wfcq_splice_blocking: enqueue all src_q nodes at the end of dest_q.
  *
  * Dequeue all nodes from src_q.
  * dest_q must be already initialized.
- * Content written into the node before enqueue is guaranteed to be
- * consistent, but no other memory ordering is ensured.
- * Dequeue/splice/iteration mutual exclusion for src_q should be ensured
- * by the caller.
+ * Mutual exclusion for src_q should be ensured by the caller as
+ * specified in the "Synchronisation table".
+ * Returns enum cds_wfcq_ret which indicates the state of the src or
+ * dest queue. Never returns CDS_WFCQ_RET_WOULDBLOCK.
  */
-extern void __cds_wfcq_splice_blocking(
+extern enum cds_wfcq_ret __cds_wfcq_splice_blocking(
+		struct cds_wfcq_head *dest_q_head,
+		struct cds_wfcq_tail *dest_q_tail,
+		struct cds_wfcq_head *src_q_head,
+		struct cds_wfcq_tail *src_q_tail);
+
+/*
+ * __cds_wfcq_splice_nonblocking: enqueue all src_q nodes at the end of dest_q.
+ *
+ * Same as __cds_wfcq_splice_blocking, but returns
+ * CDS_WFCQ_RET_WOULDBLOCK if it needs to block.
+ */
+extern enum cds_wfcq_ret __cds_wfcq_splice_nonblocking(
 		struct cds_wfcq_head *dest_q_head,
 		struct cds_wfcq_tail *dest_q_tail,
 		struct cds_wfcq_head *src_q_head,
@@ -218,8 +280,20 @@ extern void __cds_wfcq_splice_blocking(
  * Used by for-like iteration macros:
  * __cds_wfcq_for_each_blocking()
  * __cds_wfcq_for_each_blocking_safe()
+ *
+ * Returns NULL if queue is empty, first node otherwise.
  */
 extern struct cds_wfcq_node *__cds_wfcq_first_blocking(
+		struct cds_wfcq_head *head,
+		struct cds_wfcq_tail *tail);
+
+/*
+ * __cds_wfcq_first_nonblocking: get first node of a queue, without dequeuing.
+ *
+ * Same as __cds_wfcq_first_blocking, but returns CDS_WFCQ_WOULDBLOCK if
+ * it needs to block.
+ */
+extern struct cds_wfcq_node *__cds_wfcq_first_nonblocking(
 		struct cds_wfcq_head *head,
 		struct cds_wfcq_tail *tail);
 
@@ -234,8 +308,22 @@ extern struct cds_wfcq_node *__cds_wfcq_first_blocking(
  * Used by for-like iteration macros:
  * __cds_wfcq_for_each_blocking()
  * __cds_wfcq_for_each_blocking_safe()
+ *
+ * Returns NULL if reached end of queue, non-NULL next queue node
+ * otherwise.
  */
 extern struct cds_wfcq_node *__cds_wfcq_next_blocking(
+		struct cds_wfcq_head *head,
+		struct cds_wfcq_tail *tail,
+		struct cds_wfcq_node *node);
+
+/*
+ * __cds_wfcq_next_blocking: get next node of a queue, without dequeuing.
+ *
+ * Same as __cds_wfcq_next_blocking, but returns CDS_WFCQ_WOULDBLOCK if
+ * it needs to block.
+ */
+extern struct cds_wfcq_node *__cds_wfcq_next_nonblocking(
 		struct cds_wfcq_head *head,
 		struct cds_wfcq_tail *tail,
 		struct cds_wfcq_node *node);

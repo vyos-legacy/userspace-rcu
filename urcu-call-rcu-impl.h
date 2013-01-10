@@ -69,14 +69,15 @@ struct call_rcu_data {
  * Protected by call_rcu_mutex.
  */
 
-CDS_LIST_HEAD(call_rcu_data_list);
+static CDS_LIST_HEAD(call_rcu_data_list);
 
 /* Link a thread using call_rcu() to its call_rcu thread. */
 
 static DEFINE_URCU_TLS(struct call_rcu_data *, thread_call_rcu_data);
 
-/* Guard call_rcu thread creation. */
-
+/*
+ * Guard call_rcu thread creation and atfork handlers.
+ */
 static pthread_mutex_t call_rcu_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 /* If a given thread does not have its own call_rcu thread, this is default. */
@@ -252,11 +253,29 @@ static void *call_rcu_thread(void *arg)
 		struct cds_wfcq_head cbs_tmp_head;
 		struct cds_wfcq_tail cbs_tmp_tail;
 		struct cds_wfcq_node *cbs, *cbs_tmp_n;
+		enum cds_wfcq_ret splice_ret;
+
+		if (uatomic_read(&crdp->flags) & URCU_CALL_RCU_PAUSE) {
+			/*
+			 * Pause requested. Become quiescent: remove
+			 * ourself from all global lists, and don't
+			 * process any callback. The callback lists may
+			 * still be non-empty though.
+			 */
+			rcu_unregister_thread();
+			cmm_smp_mb__before_uatomic_or();
+			uatomic_or(&crdp->flags, URCU_CALL_RCU_PAUSED);
+			while ((uatomic_read(&crdp->flags) & URCU_CALL_RCU_PAUSE) != 0)
+				poll(NULL, 0, 1);
+			rcu_register_thread();
+		}
 
 		cds_wfcq_init(&cbs_tmp_head, &cbs_tmp_tail);
-		__cds_wfcq_splice_blocking(&cbs_tmp_head, &cbs_tmp_tail,
-			&crdp->cbs_head, &crdp->cbs_tail);
-		if (!cds_wfcq_empty(&cbs_tmp_head, &cbs_tmp_tail)) {
+		splice_ret = __cds_wfcq_splice_blocking(&cbs_tmp_head,
+			&cbs_tmp_tail, &crdp->cbs_head, &crdp->cbs_tail);
+		assert(splice_ret != CDS_WFCQ_RET_WOULDBLOCK);
+		assert(splice_ret != CDS_WFCQ_RET_DEST_NON_EMPTY);
+		if (splice_ret != CDS_WFCQ_RET_SRC_EMPTY) {
 			synchronize_rcu();
 			cbcount = 0;
 			__cds_wfcq_for_each_blocking_safe(&cbs_tmp_head,
@@ -702,12 +721,25 @@ void free_all_cpu_call_rcu_data(void)
 
 /*
  * Acquire the call_rcu_mutex in order to ensure that the child sees
- * all of the call_rcu() data structures in a consistent state.
+ * all of the call_rcu() data structures in a consistent state. Ensure
+ * that all call_rcu threads are in a quiescent state across fork.
  * Suitable for pthread_atfork() and friends.
  */
 void call_rcu_before_fork(void)
 {
+	struct call_rcu_data *crdp;
+
 	call_rcu_lock(&call_rcu_mutex);
+
+	cds_list_for_each_entry(crdp, &call_rcu_data_list, list) {
+		uatomic_or(&crdp->flags, URCU_CALL_RCU_PAUSE);
+		cmm_smp_mb__after_uatomic_or();
+		wake_call_rcu_thread(crdp);
+	}
+	cds_list_for_each_entry(crdp, &call_rcu_data_list, list) {
+		while ((uatomic_read(&crdp->flags) & URCU_CALL_RCU_PAUSED) == 0)
+			poll(NULL, 0, 1);
+	}
 }
 
 /*
@@ -717,6 +749,10 @@ void call_rcu_before_fork(void)
  */
 void call_rcu_after_fork_parent(void)
 {
+	struct call_rcu_data *crdp;
+
+	cds_list_for_each_entry(crdp, &call_rcu_data_list, list)
+		uatomic_and(&crdp->flags, ~URCU_CALL_RCU_PAUSE);
 	call_rcu_unlock(&call_rcu_mutex);
 }
 
@@ -749,7 +785,11 @@ void call_rcu_after_fork_child(void)
 	rcu_set_pointer(&per_cpu_call_rcu_data, NULL);
 	URCU_TLS(thread_call_rcu_data) = NULL;
 
-	/* Dispose of all of the rest of the call_rcu_data structures. */
+	/*
+	 * Dispose of all of the rest of the call_rcu_data structures.
+	 * Leftover call_rcu callbacks will be merged into the new
+	 * default call_rcu thread queue.
+	 */
 	cds_list_for_each_entry_safe(crdp, next, &call_rcu_data_list, list) {
 		if (crdp == default_call_rcu_data)
 			continue;

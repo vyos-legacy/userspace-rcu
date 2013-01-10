@@ -1,7 +1,7 @@
 /*
  * wfcqueue.c
  *
- * Userspace RCU library - Concurrent queue with Wait-Free Enqueue/Blocking Dequeue
+ * Userspace RCU library - Concurrent Queue with Wait-Free Enqueue/Blocking Dequeue
  *
  * Copyright 2010-2012 - Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
  * Copyright 2011-2012 - Lai Jiangshan <laijs@cn.fujitsu.com>
@@ -47,23 +47,23 @@ bool cds_wfcq_empty(struct cds_wfcq_head *head,
 	return _cds_wfcq_empty(head, tail);
 }
 
-void cds_wfcq_enqueue(struct cds_wfcq_head *head,
+bool cds_wfcq_enqueue(struct cds_wfcq_head *head,
 		struct cds_wfcq_tail *tail,
 		struct cds_wfcq_node *node)
 {
-	_cds_wfcq_enqueue(head, tail, node);
+	return _cds_wfcq_enqueue(head, tail, node);
 }
 
 void cds_wfcq_dequeue_lock(struct cds_wfcq_head *head,
 		struct cds_wfcq_tail *tail)
 {
-	cds_wfcq_dequeue_lock(head, tail);
+	_cds_wfcq_dequeue_lock(head, tail);
 }
 
 void cds_wfcq_dequeue_unlock(struct cds_wfcq_head *head,
 		struct cds_wfcq_tail *tail)
 {
-	cds_wfcq_dequeue_unlock(head, tail);
+	_cds_wfcq_dequeue_unlock(head, tail);
 }
 
 struct cds_wfcq_node *cds_wfcq_dequeue_blocking(
@@ -73,13 +73,13 @@ struct cds_wfcq_node *cds_wfcq_dequeue_blocking(
 	return _cds_wfcq_dequeue_blocking(head, tail);
 }
 
-void cds_wfcq_splice_blocking(
+enum cds_wfcq_ret cds_wfcq_splice_blocking(
 		struct cds_wfcq_head *dest_q_head,
 		struct cds_wfcq_tail *dest_q_tail,
 		struct cds_wfcq_head *src_q_head,
 		struct cds_wfcq_tail *src_q_tail)
 {
-	_cds_wfcq_splice_blocking(dest_q_head, dest_q_tail,
+	return _cds_wfcq_splice_blocking(dest_q_head, dest_q_tail,
 				src_q_head, src_q_tail);
 }
 
@@ -90,13 +90,30 @@ struct cds_wfcq_node *__cds_wfcq_dequeue_blocking(
 	return ___cds_wfcq_dequeue_blocking(head, tail);
 }
 
-void __cds_wfcq_splice_blocking(
+struct cds_wfcq_node *__cds_wfcq_dequeue_nonblocking(
+		struct cds_wfcq_head *head,
+		struct cds_wfcq_tail *tail)
+{
+	return ___cds_wfcq_dequeue_nonblocking(head, tail);
+}
+
+enum cds_wfcq_ret __cds_wfcq_splice_blocking(
 		struct cds_wfcq_head *dest_q_head,
 		struct cds_wfcq_tail *dest_q_tail,
 		struct cds_wfcq_head *src_q_head,
 		struct cds_wfcq_tail *src_q_tail)
 {
-	___cds_wfcq_splice_blocking(dest_q_head, dest_q_tail,
+	return ___cds_wfcq_splice_blocking(dest_q_head, dest_q_tail,
+				src_q_head, src_q_tail);
+}
+
+enum cds_wfcq_ret __cds_wfcq_splice_nonblocking(
+		struct cds_wfcq_head *dest_q_head,
+		struct cds_wfcq_tail *dest_q_tail,
+		struct cds_wfcq_head *src_q_head,
+		struct cds_wfcq_tail *src_q_tail)
+{
+	return ___cds_wfcq_splice_nonblocking(dest_q_head, dest_q_tail,
 				src_q_head, src_q_tail);
 }
 
@@ -107,10 +124,25 @@ struct cds_wfcq_node *__cds_wfcq_first_blocking(
 	return ___cds_wfcq_first_blocking(head, tail);
 }
 
+struct cds_wfcq_node *__cds_wfcq_first_nonblocking(
+		struct cds_wfcq_head *head,
+		struct cds_wfcq_tail *tail)
+{
+	return ___cds_wfcq_first_nonblocking(head, tail);
+}
+
 struct cds_wfcq_node *__cds_wfcq_next_blocking(
 		struct cds_wfcq_head *head,
 		struct cds_wfcq_tail *tail,
 		struct cds_wfcq_node *node)
 {
 	return ___cds_wfcq_next_blocking(head, tail, node);
+}
+
+struct cds_wfcq_node *__cds_wfcq_next_nonblocking(
+		struct cds_wfcq_head *head,
+		struct cds_wfcq_tail *tail,
+		struct cds_wfcq_node *node)
+{
+	return ___cds_wfcq_next_nonblocking(head, tail, node);
 }

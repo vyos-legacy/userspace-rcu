@@ -1,7 +1,7 @@
 /*
- * test_urcu_lfq.c
+ * test_urcu_lfs_rcu.c
  *
- * Userspace RCU library - example RCU-based lock-free queue
+ * Userspace RCU library - example RCU-based lock-free stack
  *
  * Copyright February 2010 - Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
  * Copyright February 2010 - Paolo Bonzini <pbonzini@redhat.com>
@@ -66,6 +66,10 @@ static inline pid_t gettid(void)
 #define _LGPL_SOURCE
 #endif
 #include <urcu.h>
+
+/* Remove deprecation warnings from test build. */
+#define CDS_LFS_RCU_DEPRECATED
+
 #include <urcu/cds.h>
 
 static volatile int test_go, test_stop;
@@ -105,10 +109,9 @@ typedef unsigned long cpu_set_t;
 
 static void set_affinity(void)
 {
-#if HAVE_SCHED_SETAFFINITY
 	cpu_set_t mask;
-	int cpu, ret;
-#endif /* HAVE_SCHED_SETAFFINITY */
+	int cpu;
+	int ret;
 
 	if (!use_affinity)
 		return;
@@ -159,11 +162,11 @@ static unsigned int nr_enqueuers;
 static unsigned int nr_dequeuers;
 
 struct test {
-	struct cds_lfq_node_rcu list;
+	struct cds_lfs_node_rcu list;
 	struct rcu_head rcu;
 };
 
-static struct cds_lfq_queue_rcu q;
+static struct cds_lfs_stack_rcu s;
 
 void *thr_enqueuer(void *_count)
 {
@@ -186,10 +189,9 @@ void *thr_enqueuer(void *_count)
 		struct test *node = malloc(sizeof(*node));
 		if (!node)
 			goto fail;
-		cds_lfq_node_init_rcu(&node->list);
-		rcu_read_lock();
-		cds_lfq_enqueue_rcu(&q, &node->list);
-		rcu_read_unlock();
+		cds_lfs_node_init_rcu(&node->list);
+		/* No rcu read-side is needed for push */
+		cds_lfs_push_rcu(&s, &node->list);
 		URCU_TLS(nr_successful_enqueues)++;
 
 		if (caa_unlikely(wdelay))
@@ -239,20 +241,18 @@ void *thr_dequeuer(void *_count)
 	cmm_smp_mb();
 
 	for (;;) {
-		struct cds_lfq_node_rcu *qnode;
+		struct cds_lfs_node_rcu *snode;
 
 		rcu_read_lock();
-		qnode = cds_lfq_dequeue_rcu(&q);
+		snode = cds_lfs_pop_rcu(&s);
 		rcu_read_unlock();
-
-		if (qnode) {
+		if (snode) {
 			struct test *node;
 
-			node = caa_container_of(qnode, struct test, list);
+			node = caa_container_of(snode, struct test, list);
 			call_rcu(&node->rcu, free_node_cb);
 			URCU_TLS(nr_successful_dequeues)++;
 		}
-
 		URCU_TLS(nr_dequeues)++;
 		if (caa_unlikely(!test_duration_dequeue()))
 			break;
@@ -261,6 +261,7 @@ void *thr_dequeuer(void *_count)
 	}
 
 	rcu_unregister_thread();
+
 	printf_verbose("dequeuer thread_end, thread id : %lx, tid %lu, "
 		       "dequeues %llu, successful_dequeues %llu\n",
 		       pthread_self(),
@@ -271,17 +272,17 @@ void *thr_dequeuer(void *_count)
 	return ((void*)2);
 }
 
-void test_end(struct cds_lfq_queue_rcu *q, unsigned long long *nr_dequeues)
+void test_end(struct cds_lfs_stack_rcu *s, unsigned long long *nr_dequeues)
 {
-	struct cds_lfq_node_rcu *snode;
+	struct cds_lfs_node_rcu *snode;
 
 	do {
-		snode = cds_lfq_dequeue_rcu(q);
+		snode = cds_lfs_pop_rcu(s);
 		if (snode) {
 			struct test *node;
 
 			node = caa_container_of(snode, struct test, list);
-			free(node);	/* no more concurrent access */
+			free(node);
 			(*nr_dequeues)++;
 		}
 	} while (snode);
@@ -379,7 +380,7 @@ int main(int argc, char **argv)
 	tid_dequeuer = malloc(sizeof(*tid_dequeuer) * nr_dequeuers);
 	count_enqueuer = malloc(2 * sizeof(*count_enqueuer) * nr_enqueuers);
 	count_dequeuer = malloc(2 * sizeof(*count_dequeuer) * nr_dequeuers);
-	cds_lfq_init_rcu(&q, call_rcu);
+	cds_lfs_init_rcu(&s);
 	err = create_all_cpu_call_rcu_data(0);
 	if (err) {
 		printf("Per-CPU call_rcu() worker threads unavailable. Using default global worker thread.\n");
@@ -427,9 +428,7 @@ int main(int argc, char **argv)
 		tot_successful_dequeues += count_dequeuer[2 * i + 1];
 	}
 	
-	test_end(&q, &end_dequeues);
-	err = cds_lfq_destroy_rcu(&q);
-	assert(!err);
+	test_end(&s, &end_dequeues);
 
 	printf_verbose("total number of enqueues : %llu, dequeues %llu\n",
 		       tot_enqueues, tot_dequeues);
