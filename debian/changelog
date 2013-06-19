@@ -1,3 +1,25 @@
+liburcu (0.7.7-1+vyatta+1) unstable; urgency=low
+
+  [ Mathieu Desnoyers ]
+  * uatomic: style fix
+  * rculfhash: add assertions on node alignment
+  * clang: silence "unused expression result" warning
+  * README: document that Clang 3.0 (based on LLVM 3.0) is supported
+  * Fix build on architectures with HAVE_SCHED_GETCPU but without HAVE_SYSCONF
+  * Test for CPU_SET
+  * Fix tests: finer-grained use of CPU_SET, CPU_ZERO and cpu_set_t
+  * Fix hurd-i386: move cpuset tests outside of sched_setaffinity conditional
+  * Fix: tests/api.h use cpuset.h
+  * Add "sparc" host cpu to configure.ac
+  * Document: rculfhash destroy and resize side-effect in 0.7
+  * Fix: Use a filled signal mask to disable all signals
+  * rculfhash: document destroy context limitation
+  * Version 0.7.7
+
+  [ Stephen Hemminger ]
+
+ -- Stephen Hemminger <stephen.hemminger@vyatta.com>  Wed, 19 Jun 2013 12:57:28 -0700
+
 liburcu (0.7.6-1+vyatta+1) unstable; urgency=low
 
   [ Mathieu Desnoyers ]
